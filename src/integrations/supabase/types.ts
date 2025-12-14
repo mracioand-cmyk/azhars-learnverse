@@ -14,6 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_sources: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_url: string
+          id: string
+          subject_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          subject_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          subject_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_sources_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration: string | null
+          file_url: string
+          id: string
+          is_active: boolean | null
+          page_count: number | null
+          subject_id: string | null
+          title: string
+          type: string
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration?: string | null
+          file_url: string
+          id?: string
+          is_active?: boolean | null
+          page_count?: number | null
+          subject_id?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration?: string | null
+          file_url?: string
+          id?: string
+          is_active?: boolean | null
+          page_count?: number | null
+          subject_id?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -22,6 +140,7 @@ export type Database = {
           full_name: string
           grade: string | null
           id: string
+          is_banned: boolean | null
           phone: string | null
           section: string | null
           stage: string | null
@@ -35,6 +154,7 @@ export type Database = {
           full_name: string
           grade?: string | null
           id: string
+          is_banned?: boolean | null
           phone?: string | null
           section?: string | null
           stage?: string | null
@@ -48,11 +168,78 @@ export type Database = {
           full_name?: string
           grade?: string | null
           id?: string
+          is_banned?: boolean | null
           phone?: string | null
           section?: string | null
           stage?: string | null
           student_code?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          grade: string
+          id: string
+          is_active: boolean | null
+          name: string
+          section: string | null
+          stage: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          grade: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          section?: string | null
+          stage: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          grade?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          section?: string | null
+          stage?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      support_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_from_admin: boolean | null
+          is_read: boolean | null
+          message: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_from_admin?: boolean | null
+          is_read?: boolean | null
+          message: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_from_admin?: boolean | null
+          is_read?: boolean | null
+          message?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -106,6 +293,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      usage_logs: {
+        Row: {
+          action: string
+          content_id: string | null
+          created_at: string | null
+          duration_minutes: number | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          content_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          content_id?: string | null
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_logs_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
