@@ -1,0 +1,92 @@
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Menu, X } from "lucide-react";
+import { useState } from "react";
+
+const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between px-4">
+        {/* الشعار */}
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari transition-transform duration-300 group-hover:scale-105">
+            <BookOpen className="h-5 w-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+        </Link>
+
+        {/* روابط التنقل - Desktop */}
+        <nav className="hidden md:flex items-center gap-6">
+          <Link to="/" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            الرئيسية
+          </Link>
+          <Link to="/about" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            عن المنصة
+          </Link>
+          <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            تواصل معنا
+          </Link>
+        </nav>
+
+        {/* أزرار التسجيل - Desktop */}
+        <div className="hidden md:flex items-center gap-3">
+          <Button variant="ghost" asChild>
+            <Link to="/auth">تسجيل الدخول</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/auth?mode=register">إنشاء حساب</Link>
+          </Button>
+        </div>
+
+        {/* زر القائمة - Mobile */}
+        <button
+          className="md:hidden p-2 text-muted-foreground hover:text-primary transition-colors"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
+          {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      </div>
+
+      {/* القائمة المنسدلة - Mobile */}
+      {isMenuOpen && (
+        <div className="md:hidden border-t border-border bg-background animate-slide-up">
+          <nav className="container flex flex-col gap-4 p-4">
+            <Link
+              to="/"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              الرئيسية
+            </Link>
+            <Link
+              to="/about"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              عن المنصة
+            </Link>
+            <Link
+              to="/contact"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              تواصل معنا
+            </Link>
+            <div className="flex flex-col gap-2 pt-4 border-t border-border">
+              <Button variant="ghost" asChild className="justify-center">
+                <Link to="/auth" onClick={() => setIsMenuOpen(false)}>تسجيل الدخول</Link>
+              </Button>
+              <Button asChild className="justify-center">
+                <Link to="/auth?mode=register" onClick={() => setIsMenuOpen(false)}>إنشاء حساب</Link>
+              </Button>
+            </div>
+          </nav>
+        </div>
+      )}
+    </header>
+  );
+};
+
+export default Header;
