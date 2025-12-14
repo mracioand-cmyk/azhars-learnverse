@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X } from "lucide-react";
+import { BookOpen, Menu, X, LogOut, User, Settings } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, role, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -28,19 +34,41 @@ const Header = () => {
           <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             تواصل معنا
           </Link>
-          <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors">
-            لوحة المطور
-          </Link>
+          {/* رابط لوحة المطور - يظهر فقط للـ admin */}
+          {user && role === "admin" && (
+            <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors">
+              لوحة المطور
+            </Link>
+          )}
         </nav>
 
-        {/* أزرار التسجيل - Desktop */}
+        {/* أزرار التسجيل / حساب المستخدم - Desktop */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" asChild>
-            <Link to="/auth">تسجيل الدخول</Link>
-          </Button>
-          <Button asChild>
-            <Link to="/auth?mode=register">إنشاء حساب</Link>
-          </Button>
+          {user ? (
+            <>
+              {role === "student" && (
+                <Button variant="ghost" asChild>
+                  <Link to="/dashboard">
+                    <User className="h-4 w-4 ml-2" />
+                    لوحتي
+                  </Link>
+                </Button>
+              )}
+              <Button variant="ghost" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 ml-2" />
+                تسجيل الخروج
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" asChild>
+                <Link to="/auth">تسجيل الدخول</Link>
+              </Button>
+              <Button asChild>
+                <Link to="/auth?mode=register">إنشاء حساب</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* زر القائمة - Mobile */}
@@ -77,20 +105,42 @@ const Header = () => {
             >
               تواصل معنا
             </Link>
-            <Link
-              to="/admin"
-              className="text-sm font-medium text-gold hover:text-gold/80 transition-colors"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              لوحة المطور
-            </Link>
+            {/* رابط لوحة المطور - يظهر فقط للـ admin */}
+            {user && role === "admin" && (
+              <Link
+                to="/admin"
+                className="text-sm font-medium text-gold hover:text-gold/80 transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                لوحة المطور
+              </Link>
+            )}
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
-              <Button variant="ghost" asChild className="justify-center">
-                <Link to="/auth" onClick={() => setIsMenuOpen(false)}>تسجيل الدخول</Link>
-              </Button>
-              <Button asChild className="justify-center">
-                <Link to="/auth?mode=register" onClick={() => setIsMenuOpen(false)}>إنشاء حساب</Link>
-              </Button>
+              {user ? (
+                <>
+                  {role === "student" && (
+                    <Button variant="ghost" asChild className="justify-center">
+                      <Link to="/dashboard" onClick={() => setIsMenuOpen(false)}>
+                        <User className="h-4 w-4 ml-2" />
+                        لوحتي
+                      </Link>
+                    </Button>
+                  )}
+                  <Button variant="ghost" className="justify-center" onClick={() => { handleSignOut(); setIsMenuOpen(false); }}>
+                    <LogOut className="h-4 w-4 ml-2" />
+                    تسجيل الخروج
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" asChild className="justify-center">
+                    <Link to="/auth" onClick={() => setIsMenuOpen(false)}>تسجيل الدخول</Link>
+                  </Button>
+                  <Button asChild className="justify-center">
+                    <Link to="/auth?mode=register" onClick={() => setIsMenuOpen(false)}>إنشاء حساب</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </nav>
         </div>
