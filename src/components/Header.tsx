@@ -28,6 +28,9 @@ const Header = () => {
           <Link to="/contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             تواصل معنا
           </Link>
+          <Link to="/admin" className="text-sm font-medium text-gold hover:text-gold/80 transition-colors">
+            لوحة المطور
+          </Link>
         </nav>
 
         {/* أزرار التسجيل - Desktop */}
@@ -73,6 +76,13 @@ const Header = () => {
               onClick={() => setIsMenuOpen(false)}
             >
               تواصل معنا
+            </Link>
+            <Link
+              to="/admin"
+              className="text-sm font-medium text-gold hover:text-gold/80 transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              لوحة المطور
             </Link>
             <div className="flex flex-col gap-2 pt-4 border-t border-border">
               <Button variant="ghost" asChild className="justify-center">
