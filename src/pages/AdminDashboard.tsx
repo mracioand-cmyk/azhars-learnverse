@@ -785,3 +785,18 @@ const AdminDashboard = () => {
 };// لوحة المطور - تعديل يدوي من GitHub
 
 export default AdminDashboard;
+// ===== بيانات لوحة المطور (مؤقتة – هتتربط بقاعدة البيانات) =====
+  const [stats, setStats] = React.useState({
+    users: 0,
+    todayUsers: 0,
+    countries: 0,
+  });
+
+  React.useEffect(() => {
+    // بيانات مؤقتة للتجربة
+    setStats({
+      users: 0,
+      todayUsers: 0,
+      countries: 0,
+    });
+  }, []);
