@@ -782,6 +782,6 @@ const AdminDashboard = () => {
       </Dialog>
     </div>
   );
-};
+};// لوحة المطور - تعديل يدوي من GitHub
 
 export default AdminDashboard;
