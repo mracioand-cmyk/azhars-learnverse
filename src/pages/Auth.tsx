@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   BookOpen,
   Mail,
@@ -14,21 +15,31 @@ import {
   EyeOff,
   ChevronLeft,
   Loader2,
-  GraduationCap,
-  UserCog,
-  Clock,
 } from "lucide-react";
+import { z } from "zod";
 
 type AuthMode = "login" | "register" | "register-teacher";
+
+// Validation schemas
+const emailSchema = z.string().email("البريد الإلكتروني غير صالح").max(255);
+const passwordSchema = z.string()
+  .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+  .regex(/[A-Z]/, "يجب أن تحتوي على حرف كبير")
+  .regex(/[0-9]/, "يجب أن تحتوي على رقم")
+  .regex(/[^A-Za-z0-9]/, "يجب أن تحتوي على رمز خاص");
+const nameSchema = z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل").max(100);
+const phoneSchema = z.string().regex(/^[0-9]{10,15}$/, "رقم الهاتف غير صالح").optional().or(z.literal(""));
 
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, role, isLoading: authLoading, signIn, signUp, signUpTeacher } = useAuth();
   const initialMode = searchParams.get("mode") === "register" ? "register" : "login";
 
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // حالة النموذج
   const [formData, setFormData] = useState({
@@ -41,6 +52,22 @@ const Auth = () => {
     employeeId: "",
     phone: "",
   });
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user && role) {
+      if (role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (role === "student") {
+        navigate("/dashboard", { replace: true });
+      } else if (role === "teacher") {
+        navigate("/pending-approval", { replace: true });
+      }
+    } else if (!authLoading && user && !role) {
+      // User exists but no role - likely pending teacher
+      navigate("/pending-approval", { replace: true });
+    }
+  }, [user, role, authLoading, navigate]);
 
   // التحقق من قوة كلمة المرور
   const getPasswordStrength = (password: string) => {
@@ -59,37 +86,155 @@ const Auth = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // Validate email
+    const emailResult = emailSchema.safeParse(formData.email);
+    if (!emailResult.success) {
+      newErrors.email = emailResult.error.errors[0].message;
+    }
+
+    // Validate password
+    if (mode === "login") {
+      if (!formData.password) {
+        newErrors.password = "كلمة المرور مطلوبة";
+      }
+    } else {
+      const passwordResult = passwordSchema.safeParse(formData.password);
+      if (!passwordResult.success) {
+        newErrors.password = passwordResult.error.errors[0].message;
+      }
+
+      // Confirm password match
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = "كلمات المرور غير متطابقة";
+      }
+
+      // Validate name
+      const nameResult = nameSchema.safeParse(formData.name);
+      if (!nameResult.success) {
+        newErrors.name = nameResult.error.errors[0].message;
+      }
+    }
+
+    // Validate teacher-specific fields
+    if (mode === "register-teacher") {
+      if (!formData.school.trim()) {
+        newErrors.school = "جهة العمل مطلوبة";
+      }
+      if (!formData.employeeId.trim()) {
+        newErrors.employeeId = "الرقم الوظيفي مطلوب";
+      }
+      if (formData.phone) {
+        const phoneResult = phoneSchema.safeParse(formData.phone);
+        if (!phoneResult.success) {
+          newErrors.phone = phoneResult.error.errors[0].message;
+        }
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-
-    // محاكاة عملية التسجيل
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    if (mode === "login") {
-      toast({
-        title: "تم تسجيل الدخول بنجاح",
-        description: "جاري تحويلك للوحة التحكم...",
-      });
-      navigate("/dashboard");
-    } else if (mode === "register") {
-      toast({
-        title: "تم إنشاء الحساب بنجاح",
-        description: "يمكنك الآن تسجيل الدخول والبدء في التعلم",
-      });
-      setMode("login");
-    } else if (mode === "register-teacher") {
-      toast({
-        title: "تم إرسال طلبك",
-        description: "سيتم مراجعة طلبك وإشعارك عند القبول",
-      });
-      navigate("/pending-approval");
+    
+    if (!validateForm()) {
+      return;
     }
 
-    setIsLoading(false);
+    setIsLoading(true);
+
+    try {
+      if (mode === "login") {
+        const { error } = await signIn(formData.email, formData.password);
+        
+        if (error) {
+          toast({
+            title: "فشل تسجيل الدخول",
+            description: error,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "تم تسجيل الدخول بنجاح",
+            description: "جاري تحويلك...",
+          });
+          // Navigation will be handled by useEffect watching user/role
+        }
+      } else if (mode === "register") {
+        const { error } = await signUp({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          phone: formData.phone || undefined,
+        });
+        
+        if (error) {
+          toast({
+            title: "فشل إنشاء الحساب",
+            description: error,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "تم إنشاء الحساب بنجاح",
+            description: "يمكنك الآن تسجيل الدخول والبدء في التعلم",
+          });
+          setMode("login");
+          setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
+        }
+      } else if (mode === "register-teacher") {
+        const { error } = await signUpTeacher({
+          email: formData.email,
+          password: formData.password,
+          fullName: formData.name,
+          phone: formData.phone || undefined,
+          schoolName: formData.school,
+          employeeId: formData.employeeId,
+        });
+        
+        if (error) {
+          toast({
+            title: "فشل إرسال الطلب",
+            description: error,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "تم إرسال طلبك",
+            description: "سيتم مراجعة طلبك وإشعارك عند القبول",
+          });
+          navigate("/pending-approval");
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "حدث خطأ",
+        description: "يرجى المحاولة مرة أخرى",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Show loading if checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
@@ -128,12 +273,13 @@ const Auth = () => {
                       id="name"
                       name="name"
                       placeholder="أدخل اسمك الكامل"
-                      className="pr-10"
+                      className={`pr-10 ${errors.name ? "border-destructive" : ""}`}
                       value={formData.name}
                       onChange={handleInputChange}
                       required
                     />
                   </div>
+                  {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                 </div>
               )}
 
@@ -162,10 +308,12 @@ const Auth = () => {
                       id="school"
                       name="school"
                       placeholder="أدخل اسم المدرسة أو الجهة"
+                      className={errors.school ? "border-destructive" : ""}
                       value={formData.school}
                       onChange={handleInputChange}
                       required
                     />
+                    {errors.school && <p className="text-xs text-destructive">{errors.school}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="employeeId">الرقم الوظيفي</Label>
@@ -173,10 +321,12 @@ const Auth = () => {
                       id="employeeId"
                       name="employeeId"
                       placeholder="أدخل رقمك الوظيفي"
+                      className={errors.employeeId ? "border-destructive" : ""}
                       value={formData.employeeId}
                       onChange={handleInputChange}
                       required
                     />
+                    {errors.employeeId && <p className="text-xs text-destructive">{errors.employeeId}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">رقم الهاتف</Label>
@@ -185,10 +335,12 @@ const Auth = () => {
                       name="phone"
                       type="tel"
                       placeholder="أدخل رقم هاتفك"
+                      className={errors.phone ? "border-destructive" : ""}
                       value={formData.phone}
                       onChange={handleInputChange}
                       required
                     />
+                    {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
                 </>
               )}
@@ -203,12 +355,13 @@ const Auth = () => {
                     name="email"
                     type="email"
                     placeholder="example@email.com"
-                    className="pr-10"
+                    className={`pr-10 ${errors.email ? "border-destructive" : ""}`}
                     value={formData.email}
                     onChange={handleInputChange}
                     required
                   />
                 </div>
+                {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
               </div>
 
               {/* كلمة المرور */}
@@ -221,7 +374,7 @@ const Auth = () => {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="أدخل كلمة المرور"
-                    className="pr-10 pl-10"
+                    className={`pr-10 pl-10 ${errors.password ? "border-destructive" : ""}`}
                     value={formData.password}
                     onChange={handleInputChange}
                     required
@@ -234,6 +387,7 @@ const Auth = () => {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+                {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
 
                 {/* مؤشر قوة كلمة المرور */}
                 {mode !== "login" && formData.password && (
@@ -266,12 +420,13 @@ const Auth = () => {
                       name="confirmPassword"
                       type={showPassword ? "text" : "password"}
                       placeholder="أعد إدخال كلمة المرور"
-                      className="pr-10"
+                      className={`pr-10 ${errors.confirmPassword ? "border-destructive" : ""}`}
                       value={formData.confirmPassword}
                       onChange={handleInputChange}
                       required
                     />
                   </div>
+                  {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
                 </div>
               )}
 
@@ -308,7 +463,7 @@ const Auth = () => {
                 </div>
               </div>
 
-              <Button type="button" variant="outline" className="w-full" size="lg">
+              <Button type="button" variant="outline" className="w-full" size="lg" disabled>
                 <svg className="h-5 w-5 ml-2" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -327,7 +482,7 @@ const Auth = () => {
                     fill="#EA4335"
                   />
                 </svg>
-                التسجيل بواسطة Google
+                التسجيل بواسطة Google (قريباً)
               </Button>
             </form>
 
