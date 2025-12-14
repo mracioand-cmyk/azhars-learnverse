@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -156,6 +158,15 @@ const mockTeacherRequests = [
 ];
 
 const AdminDashboard = () => {
+
+  const [stats, setStats] = useState({
+  users: 0,
+  students: 0,
+  teachers: 0,
+  subjects: 0,
+  contents: 0,
+  todayUsers: 0,
+});
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -165,17 +176,46 @@ const AdminDashboard = () => {
   const [notificationDialog, setNotificationDialog] = useState(false);
   const [notificationTarget, setNotificationTarget] = useState<string | null>(null);
   const [notificationMessage, setNotificationMessage] = useState("");
+  useEffect(() => {
+  const loadStats = async () => {
+    try {
+      // عدد الطلاب
+      const { count: studentsCount } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .eq("stage", "student");
 
-  // إحصائيات المنصة
-  const stats = {
-    totalStudents: 1250,
-    totalTeachers: 45,
-    pendingRequests: mockTeacherRequests.filter(r => r.status === "pending").length,
-    totalMessages: 23,
-    activeToday: 320,
-    totalLessons: 156,
+      // عدد المدرسين
+      const { count: teachersCount } = await supabase
+        .from("user_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "teacher");
+
+      // عدد المواد
+      const { count: subjectsCount } = await supabase
+        .from("subjects")
+        .select("*", { count: "exact", head: true });
+
+      // عدد المحتوى
+      const { count: contentsCount } = await supabase
+        .from("content")
+        .select("*", { count: "exact", head: true });
+
+      setStats({
+        users: (studentsCount || 0) + (teachersCount || 0),
+        students: studentsCount || 0,
+        teachers: teachersCount || 0,
+        subjects: subjectsCount || 0,
+        contents: contentsCount || 0,
+        todayUsers: 0, // هنظبطها بعدين
+      });
+    } catch (error) {
+      console.error("Error loading stats", error);
+    }
   };
 
+  loadStats();
+}, []);
   // تصفية الطلاب
   const filteredStudents = mockStudents.filter(student => {
     const matchesSearch = student.name.includes(searchTerm) || 
