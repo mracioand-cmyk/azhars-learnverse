@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import Subjects from "./pages/Subjects";
 import SubjectPage from "./pages/SubjectPage";
 import PendingApproval from "./pages/PendingApproval";
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/subjects" element={<Subjects />} />
           <Route path="/subject/:subjectId" element={<SubjectPage />} />
           <Route path="/pending-approval" element={<PendingApproval />} />
