@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookOpen, Clock, Mail, MessageSquare, LogOut, CheckCircle, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/manualClient";
 
 type RequestStatus = "pending" | "approved" | "rejected" | null;
 
