@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/manualClient";
+import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
   BookOpen,
   ChevronLeft,
@@ -11,11 +12,12 @@ import {
   User,
   Settings,
   LogOut,
-  Bell,
   Clock,
   BookMarked,
   Video,
   Loader2,
+  MessageSquare,
+  Info,
 } from "lucide-react";
 
 interface ProfileData {
@@ -162,15 +164,28 @@ const Dashboard = () => {
             <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
           </Link>
 
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
-            </button>
+          <div className="flex items-center gap-2">
+            {/* الإشعارات */}
+            <NotificationsDropdown />
 
-            <button className="p-2 text-muted-foreground hover:text-primary transition-colors">
+            {/* عن المنصة */}
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/about-platform">
+                <Info className="h-5 w-5" />
+              </Link>
+            </Button>
+
+            {/* الدعم الفني */}
+            <Button variant="ghost" size="icon" asChild>
+              <Link to="/support">
+                <MessageSquare className="h-5 w-5" />
+              </Link>
+            </Button>
+
+            {/* الإعدادات */}
+            <Button variant="ghost" size="icon">
               <Settings className="h-5 w-5" />
-            </button>
+            </Button>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent">
               <User className="h-5 w-5 text-primary" />
