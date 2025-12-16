@@ -15,6 +15,10 @@ import PendingApproval from "./pages/PendingApproval";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
+// Student Pages
+import StudentSupportPage from "./pages/student/SupportPage";
+import StudentAboutPage from "./pages/student/AboutPage";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -52,6 +56,22 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <SubjectPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/support"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <StudentSupportPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/about-platform"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <StudentAboutPage />
                 </ProtectedRoute>
               }
             />
