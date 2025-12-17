@@ -964,12 +964,25 @@ const AdminDashboard = () => {
                                 </SelectItem>
                               ))
                             ) : (
-                              <div className="p-2 text-center text-muted-foreground text-sm">
+                              <SelectItem value="__no_subjects" disabled>
                                 لا توجد مواد - يرجى إضافة مواد أولاً
-                              </div>
+                              </SelectItem>
                             )}
                           </SelectContent>
                         </Select>
+                        {subjects.length === 0 && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="h-auto p-0"
+                            onClick={() => {
+                              setUploadOpen(false);
+                              navigate("/admin/subjects");
+                            }}
+                          >
+                            إضافة مادة الآن
+                          </Button>
+                        )}
                       </div>
 
                       <div className="space-y-2">
