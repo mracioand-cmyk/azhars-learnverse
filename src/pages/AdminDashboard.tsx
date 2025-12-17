@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/manualClient";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
@@ -130,8 +130,31 @@ const AdminDashboard = () => {
     setSupportMessages(support || []);
   };
 
+  /* ================== STORAGE URL PARSER ================== */
+  const parsePublicStorageUrl = (fileUrl?: string | null) => {
+    if (!fileUrl) return null;
+    try {
+      const u = new URL(fileUrl);
+      const prefix = "/storage/v1/object/public/";
+      const idx = u.pathname.indexOf(prefix);
+      if (idx === -1) return null;
+      const rest = u.pathname.slice(idx + prefix.length);
+      const [bucket, ...pathParts] = rest.split("/");
+      const path = decodeURIComponent(pathParts.join("/"));
+      if (!bucket || !path) return null;
+      return { bucket, path };
+    } catch {
+      return null;
+    }
+  };
+
   /* ================== UPLOAD ================== */
   const handleUpload = async () => {
+    if (!user) {
+      toast.error("يرجى تسجيل الدخول أولاً");
+      return;
+    }
+
     if (!newItem.file || !newItem.title || !newItem.subject_id) {
       toast.error("أكمل البيانات");
       return;
@@ -139,31 +162,39 @@ const AdminDashboard = () => {
 
     setUploading(true);
     try {
-      const bucket = newItem.type === "book" ? "pdfs" : "videos";
+      const bucket = newItem.type === "book" ? "books" : "videos";
       const ext = newItem.file.name.split(".").pop();
-      const path = `${user!.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+      const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
-      await supabase.storage.from(bucket).upload(path, newItem.file);
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(path, newItem.file);
 
-      const { data: url } = supabase.storage.from(bucket).getPublicUrl(path);
+      if (uploadError) throw uploadError;
 
-      await supabase.from("content").insert({
-        title: newItem.title,
-        type: newItem.type,
-        url: url.publicUrl,
-        storage_bucket: bucket,
-        storage_path: path,
-        subject_id: newItem.subject_id,
-        created_by: user!.id,
-        is_published: true,
-      });
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
+      const publicUrl = urlData?.publicUrl;
+      if (!publicUrl) throw new Error("فشل إنشاء رابط الملف");
+
+      const { error: insertError } = await supabase.from("content").insert([
+        {
+          title: newItem.title,
+          type: newItem.type,
+          file_url: publicUrl,
+          subject_id: newItem.subject_id,
+          uploaded_by: user.id,
+          is_active: true,
+        },
+      ]);
+
+      if (insertError) throw insertError;
 
       toast.success("تم رفع المحتوى");
       setUploadOpen(false);
       setNewItem({ title: "", type: "book", subject_id: "", file: null });
       fetchAll();
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e?.message || "حدث خطأ أثناء الرفع");
     } finally {
       setUploading(false);
     }
@@ -173,9 +204,10 @@ const AdminDashboard = () => {
   const deleteContent = async (item: any) => {
     if (!confirm("حذف المحتوى؟")) return;
 
-    await supabase.storage
-      .from(item.storage_bucket)
-      .remove([item.storage_path]);
+    const parsed = parsePublicStorageUrl(item.file_url);
+    if (parsed) {
+      await supabase.storage.from(parsed.bucket).remove([parsed.path]);
+    }
 
     await supabase.from("content").delete().eq("id", item.id);
     toast.success("تم الحذف");
