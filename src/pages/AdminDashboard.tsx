@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/manualClient';
 import {
   LayoutDashboard,
   Users,
@@ -62,14 +62,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 interface Profile {
   id: string;
-  username: string;
   email: string;
   full_name: string;
-  role: 'student' | 'teacher' | 'admin';
-  stage?: string;
-  grade?: string;
-  is_banned?: boolean;
-  created_at: string;
+  stage?: string | null;
+  grade?: string | null;
+  section?: string | null;
+  is_banned?: boolean | null;
+  created_at: string | null;
+  student_code?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
 }
 
 interface Subject {
@@ -77,17 +79,21 @@ interface Subject {
   name: string;
   stage: string;
   grade: string;
+  category: string;
+  description?: string | null;
+  section?: string | null;
+  is_active?: boolean | null;
 }
 
 interface Content {
   id: string;
   title: string;
-  type: 'video' | 'pdf' | 'exam' | 'summary';
-  url: string;
-  subject_id: string;
-  created_at: string;
-  views: number;
-  is_active: boolean;
+  type: string;
+  file_url: string;
+  subject_id: string | null;
+  created_at: string | null;
+  is_active: boolean | null;
+  description?: string | null;
 }
 
 /* ================= MAIN ================= */
@@ -123,21 +129,29 @@ export default function AdminDashboard() {
         .eq('id', data.user.id)
         .single();
 
-      if (!profile || profile.role !== 'admin') {
+      // Check if user has admin role
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (!roleData) {
         throw new Error('Unauthorized');
       }
 
-      setCurrentUser(profile);
+      setCurrentUser(profile as Profile);
 
       const [studentsRes, subjectsRes, contentRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('role', 'student'),
+        supabase.from('profiles').select('*'),
         supabase.from('subjects').select('*'),
         supabase.from('content').select('*'),
       ]);
 
-      setStudents(studentsRes.data || []);
-      setSubjects(subjectsRes.data || []);
-      setContent(contentRes.data || []);
+      setStudents((studentsRes.data || []) as Profile[]);
+      setSubjects((subjectsRes.data || []) as Subject[]);
+      setContent((contentRes.data || []) as Content[]);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -290,8 +304,7 @@ function UploadContentDialog({
       title,
       type,
       subject_id: subjectId,
-      url,
-      views: 0,
+      file_url: url,
       is_active: true,
     });
 
