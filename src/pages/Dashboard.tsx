@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { supabase } from "@/integrations/supabase/client";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import {
   BookOpen,
@@ -110,7 +110,7 @@ const Dashboard = () => {
   const handleGradeSelect = (gradeId: string) => {
     setSelectedGrade(gradeId);
     if (selectedStage === "preparatory") {
-      navigate("/subjects");
+      navigate(`/subjects?stage=${selectedStage}&grade=${gradeId}`);
     } else {
       setSelectedSection(null);
     }
@@ -118,7 +118,8 @@ const Dashboard = () => {
 
   const handleSectionSelect = (sectionId: string) => {
     setSelectedSection(sectionId);
-    navigate("/subjects");
+    if (!selectedStage || !selectedGrade) return;
+    navigate(`/subjects?stage=${selectedStage}&grade=${selectedGrade}&section=${sectionId}`);
   };
 
   const handleBack = () => {
