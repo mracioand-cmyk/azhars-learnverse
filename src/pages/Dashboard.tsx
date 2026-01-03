@@ -23,8 +23,9 @@ import {
   Languages,
   BookText,
   Globe,
-  Calculator,
   FileText,
+  Atom,
+  Palette,
 } from "lucide-react";
 
 interface ProfileData {
@@ -40,41 +41,41 @@ interface UsageStats {
   lessonsWatched: number;
 }
 
-// أقسام المواد حسب المرحلة والشعبة
+// أقسام المواد حسب المرحلة والشعبة - تصميم 2026
 const getCategoryButtons = (stage: string, section: string | null) => {
   if (stage === "preparatory") {
     return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
-      { id: "science", name: "العلوم", icon: Beaker, color: "from-blue-500 to-blue-600" },
-      { id: "social", name: "الدراسات", icon: Globe, color: "from-purple-500 to-purple-600" },
-      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
+      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
+      { id: "science", name: "العلوم", icon: Beaker, gradient: "from-blue-500 via-blue-600 to-indigo-700", shadow: "shadow-blue-500/30" },
+      { id: "social", name: "الدراسات", icon: Globe, gradient: "from-purple-500 via-purple-600 to-violet-700", shadow: "shadow-purple-500/30" },
+      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
     ];
   }
   
   if (stage === "secondary" && section === "scientific") {
     return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
-      { id: "scientific", name: "المواد العلمية", icon: Beaker, color: "from-blue-500 to-blue-600" },
-      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
+      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
+      { id: "scientific", name: "المواد العلمية", icon: Atom, gradient: "from-cyan-500 via-cyan-600 to-blue-700", shadow: "shadow-cyan-500/30" },
+      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
     ];
   }
   
   if (stage === "secondary" && section === "literary") {
     return [
-      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
-      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
-      { id: "literary", name: "المواد الأدبية", icon: FileText, color: "from-indigo-500 to-indigo-600" },
-      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
-      { id: "french", name: "الفرنسية", icon: Globe, color: "from-pink-500 to-pink-600" },
+      { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
+      { id: "literary", name: "المواد الأدبية", icon: Palette, gradient: "from-indigo-500 via-indigo-600 to-purple-700", shadow: "shadow-indigo-500/30" },
+      { id: "english", name: "الإنجليزية", icon: Languages, gradient: "from-rose-500 via-rose-600 to-pink-700", shadow: "shadow-rose-500/30" },
+      { id: "french", name: "الفرنسية", icon: Globe, gradient: "from-sky-500 via-sky-600 to-blue-700", shadow: "shadow-sky-500/30" },
     ];
   }
   
   // Default
   return [
-    { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
-    { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
+    { id: "arabic", name: "المواد العربية", icon: BookText, gradient: "from-emerald-500 via-emerald-600 to-teal-700", shadow: "shadow-emerald-500/30" },
+    { id: "religious", name: "المواد الشرعية", icon: BookMarked, gradient: "from-amber-500 via-amber-600 to-orange-700", shadow: "shadow-amber-500/30" },
   ];
 };
 
@@ -141,19 +142,19 @@ const Dashboard = () => {
   }, [user]);
 
   const stages = [
-    { id: "preparatory", name: "المرحلة الإعدادية", icon: "📚" },
-    { id: "secondary", name: "المرحلة الثانوية", icon: "🎓" },
+    { id: "preparatory", name: "المرحلة الإعدادية", icon: "📚", description: "الصفوف الأول والثاني والثالث الإعدادي" },
+    { id: "secondary", name: "المرحلة الثانوية", icon: "🎓", description: "الصفوف الأول والثاني والثالث الثانوي" },
   ];
 
   const grades = [
-    { id: "first", name: "الصف الأول" },
-    { id: "second", name: "الصف الثاني" },
-    { id: "third", name: "الصف الثالث" },
+    { id: "first", name: "الصف الأول", icon: "1️⃣" },
+    { id: "second", name: "الصف الثاني", icon: "2️⃣" },
+    { id: "third", name: "الصف الثالث", icon: "3️⃣" },
   ];
 
   const sections = [
-    { id: "scientific", name: "علمي", icon: "🔬" },
-    { id: "literary", name: "أدبي", icon: "📖" },
+    { id: "scientific", name: "القسم العلمي", icon: "🔬", description: "الرياضيات والفيزياء والكيمياء" },
+    { id: "literary", name: "القسم الأدبي", icon: "📖", description: "التاريخ والجغرافيا والفلسفة" },
   ];
 
   const handleStageSelect = (stageId: string) => {
@@ -261,12 +262,12 @@ const Dashboard = () => {
     : [];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       {/* الهيدر */}
-      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-azhari shadow-azhari">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
               <BookOpen className="h-5 w-5 text-primary-foreground" />
             </div>
             <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
@@ -277,30 +278,30 @@ const Dashboard = () => {
             <NotificationsDropdown />
 
             {/* عن المنصة */}
-            <Button variant="ghost" size="icon" asChild>
+            <Button variant="ghost" size="icon" asChild className="hover:bg-accent">
               <Link to="/about-platform">
                 <Info className="h-5 w-5" />
               </Link>
             </Button>
 
             {/* الدعم الفني */}
-            <Button variant="ghost" size="icon" asChild>
+            <Button variant="ghost" size="icon" asChild className="hover:bg-accent">
               <Link to="/support">
                 <MessageSquare className="h-5 w-5" />
               </Link>
             </Button>
 
             {/* الإعدادات */}
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:bg-accent">
               <Settings className="h-5 w-5" />
             </Button>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-accent to-accent/50 border border-border/50">
               <User className="h-5 w-5 text-primary" />
               <span className="text-sm font-medium">{profileData?.full_name || user?.email}</span>
             </div>
 
-            <Button variant="ghost" size="icon" onClick={handleSignOut}>
+            <Button variant="ghost" size="icon" onClick={handleSignOut} className="hover:bg-destructive/10 hover:text-destructive">
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -309,127 +310,120 @@ const Dashboard = () => {
 
       <main className="container px-4 py-8">
         {/* شريط الحالة */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-gradient-to-l from-primary to-azhari-dark text-primary-foreground">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-primary-foreground/20">
+        <div className="grid md:grid-cols-3 gap-4 mb-10">
+          <Card className="border-0 bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-xl shadow-primary/20 overflow-hidden relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNCA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+            <CardContent className="p-5 flex items-center gap-4 relative">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur">
                 <User className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm text-primary-foreground/70">كود الطالب</p>
-                <p className="text-xl font-bold">{profileData?.student_code || "---"}</p>
+                <p className="text-sm text-primary-foreground/80">كود الطالب</p>
+                <p className="text-2xl font-bold tracking-wider">{profileData?.student_code || "---"}</p>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-l from-gold to-gold-dark text-foreground">
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-foreground/20">
+          <Card className="border-0 bg-gradient-to-br from-amber-500 via-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 overflow-hidden relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNCA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+            <CardContent className="p-5 flex items-center gap-4 relative">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur">
                 <Clock className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm opacity-70">وقت التعلم</p>
-                <p className="text-xl font-bold">
-                  {time.hours} ساعة {time.minutes} دقيقة
+                <p className="text-sm text-white/80">وقت التعلم</p>
+                <p className="text-2xl font-bold">
+                  {time.hours > 0 && `${time.hours} ساعة `}{time.minutes} دقيقة
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-lg bg-accent">
-                <Video className="h-6 w-6 text-primary" />
+          <Card className="border-0 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 text-white shadow-xl shadow-violet-500/20 overflow-hidden relative">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzRoLTJ2LTRoMnY0em0wLTZoLTJ2LTRoMnY0em0tNCA2aC0ydi00aDJ2NHptMC02aC0ydi00aDJ2NHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30" />
+            <CardContent className="p-5 flex items-center gap-4 relative">
+              <div className="p-3 rounded-xl bg-white/20 backdrop-blur">
+                <Video className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">الدروس المشاهدة</p>
-                <p className="text-xl font-bold text-foreground">{usageStats.lessonsWatched} درس</p>
+                <p className="text-sm text-white/80">الدروس المشاهدة</p>
+                <p className="text-2xl font-bold">{usageStats.lessonsWatched} درس</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* عرض أقسام المواد مباشرة */}
+        {/* عرض أقسام المواد مباشرة - بدون زر تغيير المرحلة */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <BookOpen className="h-7 w-7 text-primary" />
-              أقسام المواد
-            </h2>
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <BookOpen className="h-8 w-8 text-primary" />
+                </div>
+                أقسام المواد
+              </h2>
+              <p className="text-muted-foreground text-lg">اختر القسم للوصول إلى المواد الدراسية</p>
+            </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
               {categoryButtons.map((category) => {
                 const IconComponent = category.icon;
                 return (
                   <Card
                     key={category.id}
-                    className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 group overflow-hidden"
+                    className={`cursor-pointer border-0 bg-gradient-to-br ${category.gradient} text-white shadow-xl ${category.shadow} hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative`}
                     onClick={() => handleCategoryClick(category.id)}
                   >
-                    <CardContent className={`p-6 bg-gradient-to-br ${category.color} text-white text-center`}>
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <IconComponent className="h-8 w-8" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                    <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                    <CardContent className="p-8 text-center relative">
+                      <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
+                        <IconComponent className="h-10 w-10" />
                       </div>
-                      <h3 className="text-lg font-bold">{category.name}</h3>
+                      <h3 className="text-xl font-bold tracking-wide">{category.name}</h3>
                     </CardContent>
                   </Card>
                 );
               })}
             </div>
-
-            {/* زر تغيير المرحلة/الصف */}
-            <div className="text-center">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  setNeedsOnboarding(true);
-                  setSelectedStage(null);
-                  setSelectedGrade(null);
-                  setSelectedSection(null);
-                }}
-              >
-                <Settings className="h-4 w-4 ml-2" />
-                تغيير المرحلة أو الصف
-              </Button>
-            </div>
           </div>
         )}
 
-        {/* Onboarding - اختيار المرحلة والصف للمرة الأولى */}
+        {/* Onboarding - اختيار المرحلة والصف للمرة الأولى فقط */}
         {needsOnboarding && (
-          <>
+          <div className="max-w-4xl mx-auto">
             {/* Progress bar */}
-            <div className="mb-8">
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${!selectedStage ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+            <div className="mb-10">
+              <div className="flex items-center justify-center gap-4 mb-6">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all duration-300 ${!selectedStage ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30 scale-110' : 'bg-primary/20 text-primary'}`}>
                   ١
                 </div>
-                <div className={`w-16 h-1 rounded ${selectedStage ? 'bg-primary' : 'bg-muted'}`} />
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedStage && !selectedGrade ? 'bg-primary text-primary-foreground' : selectedGrade ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                <div className={`w-20 h-1.5 rounded-full transition-all duration-500 ${selectedStage ? 'bg-gradient-to-r from-primary to-primary/50' : 'bg-muted'}`} />
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all duration-300 ${selectedStage && !selectedGrade ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30 scale-110' : selectedGrade ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                   ٢
                 </div>
                 {selectedStage === "secondary" && (
                   <>
-                    <div className={`w-16 h-1 rounded ${selectedGrade ? 'bg-primary' : 'bg-muted'}`} />
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedGrade && !selectedSection ? 'bg-primary text-primary-foreground' : selectedSection ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                    <div className={`w-20 h-1.5 rounded-full transition-all duration-500 ${selectedGrade ? 'bg-gradient-to-r from-primary to-primary/50' : 'bg-muted'}`} />
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all duration-300 ${selectedGrade && !selectedSection ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/30 scale-110' : selectedSection ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                       ٣
                     </div>
                   </>
                 )}
               </div>
-              <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
-                <span className={!selectedStage ? 'text-primary font-medium' : ''}>المرحلة</span>
-                <span className={selectedStage && !selectedGrade ? 'text-primary font-medium' : ''}>الصف</span>
+              <div className="flex items-center justify-center gap-12 text-sm">
+                <span className={`transition-colors ${!selectedStage ? 'text-primary font-bold' : 'text-muted-foreground'}`}>المرحلة</span>
+                <span className={`transition-colors ${selectedStage && !selectedGrade ? 'text-primary font-bold' : 'text-muted-foreground'}`}>الصف</span>
                 {selectedStage === "secondary" && (
-                  <span className={selectedGrade && !selectedSection ? 'text-primary font-medium' : ''}>الشعبة</span>
+                  <span className={`transition-colors ${selectedGrade && !selectedSection ? 'text-primary font-bold' : 'text-muted-foreground'}`}>الشعبة</span>
                 )}
               </div>
             </div>
 
             {/* زر الرجوع */}
             {(selectedStage || selectedGrade || selectedSection) && (
-              <Button variant="ghost" className="mb-4" onClick={handleBack} disabled={isSaving}>
+              <Button variant="ghost" className="mb-6 hover:bg-accent" onClick={handleBack} disabled={isSaving}>
                 <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
                 رجوع
               </Button>
@@ -438,24 +432,26 @@ const Dashboard = () => {
             {/* اختيار المرحلة */}
             {!selectedStage && (
               <div className="animate-fade-in">
-                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                  <GraduationCap className="h-7 w-7 text-primary" />
-                  اختر مرحلتك الدراسية
-                </h2>
+                <div className="text-center mb-10">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground mb-6 shadow-xl shadow-primary/30">
+                    <GraduationCap className="h-10 w-10" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-foreground mb-3">اختر مرحلتك الدراسية</h2>
+                  <p className="text-muted-foreground text-lg">هذا الاختيار سيحدد المواد التي ستظهر لك</p>
+                </div>
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                <div className="grid md:grid-cols-2 gap-8">
                   {stages.map((stage) => (
                     <Card
                       key={stage.id}
-                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      className="cursor-pointer border-2 border-transparent hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
                       onClick={() => handleStageSelect(stage.id)}
                     >
-                      <CardContent className="p-8 text-center">
-                        <div className="text-5xl mb-4">{stage.icon}</div>
-                        <h3 className="text-xl font-bold text-foreground mb-2">{stage.name}</h3>
-                        <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground">
-                          اختيار <ChevronLeft className="h-4 w-4 mr-1" />
-                        </Button>
+                      <CardContent className="p-10 text-center relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">{stage.icon}</div>
+                        <h3 className="text-2xl font-bold text-foreground mb-2">{stage.name}</h3>
+                        <p className="text-muted-foreground">{stage.description}</p>
                       </CardContent>
                     </Card>
                   ))}
@@ -466,67 +462,78 @@ const Dashboard = () => {
             {/* اختيار الصف */}
             {selectedStage && !selectedGrade && (
               <div className="animate-fade-in">
-                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                  <BookMarked className="h-7 w-7 text-primary" />
-                  اختر صفك الدراسي
-                </h2>
+                <div className="text-center mb-10">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-500 text-white mb-6 shadow-xl shadow-amber-500/30">
+                    <BookOpen className="h-10 w-10" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-foreground mb-3">اختر صفك الدراسي</h2>
+                  <p className="text-muted-foreground text-lg">
+                    {selectedStage === "preparatory" ? "المرحلة الإعدادية" : "المرحلة الثانوية"}
+                  </p>
+                </div>
 
-                <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+                <div className="grid md:grid-cols-3 gap-6">
                   {grades.map((grade) => (
                     <Card
                       key={grade.id}
-                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      className="cursor-pointer border-2 border-transparent hover:border-amber-500/50 hover:shadow-2xl hover:shadow-amber-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
                       onClick={() => handleGradeSelect(grade.id)}
                     >
-                      <CardContent className="p-6 text-center">
-                        <div className="mx-auto w-16 h-16 rounded-full gradient-azhari flex items-center justify-center mb-4">
-                          <span className="text-2xl font-bold text-primary-foreground">
-                            {grade.id === "first" ? "١" : grade.id === "second" ? "٢" : "٣"}
-                          </span>
-                        </div>
-                        <h3 className="text-lg font-bold text-foreground">{grade.name}</h3>
+                      <CardContent className="p-8 text-center relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">{grade.icon}</div>
+                        <h3 className="text-xl font-bold text-foreground">{grade.name}</h3>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
+
+                {isSaving && (
+                  <div className="mt-8 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                    <p className="text-muted-foreground mt-2">جاري الحفظ...</p>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* اختيار الشعبة (للثانوية فقط) */}
+            {/* اختيار الشعبة - للمرحلة الثانوية فقط */}
             {selectedStage === "secondary" && selectedGrade && !selectedSection && (
               <div className="animate-fade-in">
-                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-                  <GraduationCap className="h-7 w-7 text-primary" />
-                  اختر شعبتك
-                </h2>
+                <div className="text-center mb-10">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-600 text-white mb-6 shadow-xl shadow-violet-500/30">
+                    <Beaker className="h-10 w-10" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-foreground mb-3">اختر شعبتك</h2>
+                  <p className="text-muted-foreground text-lg">القسم العلمي أو الأدبي</p>
+                </div>
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                <div className="grid md:grid-cols-2 gap-8">
                   {sections.map((section) => (
                     <Card
                       key={section.id}
-                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      className="cursor-pointer border-2 border-transparent hover:border-violet-500/50 hover:shadow-2xl hover:shadow-violet-500/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden"
                       onClick={() => handleSectionSelect(section.id)}
                     >
-                      <CardContent className="p-8 text-center">
-                        <div className="text-4xl mb-4">{section.icon}</div>
-                        <h3 className="text-xl font-bold text-foreground">{section.name}</h3>
+                      <CardContent className="p-10 text-center relative">
+                        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/0 to-violet-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">{section.icon}</div>
+                        <h3 className="text-2xl font-bold text-foreground mb-2">{section.name}</h3>
+                        <p className="text-muted-foreground">{section.description}</p>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
-              </div>
-            )}
 
-            {/* Loading state while saving */}
-            {isSaving && (
-              <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
-                <div className="text-center">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-                  <p className="text-lg font-medium">جاري حفظ البيانات...</p>
-                </div>
+                {isSaving && (
+                  <div className="mt-8 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                    <p className="text-muted-foreground mt-2">جاري الحفظ...</p>
+                  </div>
+                )}
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
     </div>
