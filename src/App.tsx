@@ -23,6 +23,9 @@ import AdminSubjectsPage from "./pages/admin/SubjectsPage";
 import AdminNotificationsPage from "./pages/admin/NotificationsPage";
 import AdminSettingsPage from "./pages/admin/SettingsPage";
 import AdminSupportPage from "./pages/admin/SupportPage";
+import AdminContentBrowser from "./pages/admin/AdminContentBrowser";
+import AdminSubjectsList from "./pages/admin/AdminSubjectsList";
+import AdminSubjectContent from "./pages/admin/AdminSubjectContent";
 
 // Student Pages
 import StudentSupportPage from "./pages/student/SupportPage";
@@ -147,6 +150,30 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/content-browser"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminContentBrowser />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/content-browser/subjects"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminSubjectsList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/content-browser/subject/:subjectId"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminSubjectContent />
                 </ProtectedRoute>
               }
             />
