@@ -339,14 +339,14 @@ const SubjectsPage = () => {
               <div>
                 <Label>القسم (اختياري)</Label>
                 <Select
-                  value={formData.section}
-                  onValueChange={(v) => setFormData({ ...formData, section: v })}
+                  value={formData.section || "__none__"}
+                  onValueChange={(v) => setFormData({ ...formData, section: v === "__none__" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="اختر القسم" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">بدون قسم</SelectItem>
+                    <SelectItem value="__none__">بدون قسم</SelectItem>
                     {sections.map((section) => (
                       <SelectItem key={section.id} value={section.id}>
                         {section.name}
