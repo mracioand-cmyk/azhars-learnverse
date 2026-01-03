@@ -1039,23 +1039,23 @@ const ContentTab = () => {
 
       {/* Filters */}
       <div className="flex gap-4">
-        <Select value={selectedStage} onValueChange={(v) => { setSelectedStage(v); setSelectedGrade(""); }}>
+        <Select value={selectedStage || "__all__"} onValueChange={(v) => { setSelectedStage(v === "__all__" ? "" : v); setSelectedGrade(""); }}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="المرحلة" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">الكل</SelectItem>
+            <SelectItem value="__all__">الكل</SelectItem>
             {stages.map((s) => (
               <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={selectedGrade} onValueChange={setSelectedGrade} disabled={!selectedStage}>
+        <Select value={selectedGrade || "__all__"} onValueChange={(v) => setSelectedGrade(v === "__all__" ? "" : v)} disabled={!selectedStage}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="الصف" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">الكل</SelectItem>
+            <SelectItem value="__all__">الكل</SelectItem>
             {selectedStage && gradesByStage[selectedStage]?.map((g) => (
               <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>
             ))}
@@ -1191,7 +1191,7 @@ const ContentTab = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {subjects.length === 0 ? (
-                    <SelectItem value="" disabled>لا توجد مواد - أضف مادة أولاً</SelectItem>
+                    <SelectItem value="__no_subjects__" disabled>لا توجد مواد - أضف مادة أولاً</SelectItem>
                   ) : (
                     subjects.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
@@ -1521,14 +1521,14 @@ const SubjectsTab = () => {
             <div>
               <Label>الشعبة (للثانوي)</Label>
               <Select
-                value={form.section}
-                onValueChange={(v) => setForm({ ...form, section: v })}
+                value={form.section || "__none__"}
+                onValueChange={(v) => setForm({ ...form, section: v === "__none__" ? "" : v })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="اختر الشعبة (اختياري)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">بدون شعبة</SelectItem>
+                  <SelectItem value="__none__">بدون شعبة</SelectItem>
                   {sections.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
