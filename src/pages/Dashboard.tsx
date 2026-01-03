@@ -14,12 +14,17 @@ import {
   Settings,
   LogOut,
   Clock,
-  BookMarked,
   Video,
   Loader2,
   MessageSquare,
   Info,
-  CheckCircle,
+  BookMarked,
+  Beaker,
+  Languages,
+  BookText,
+  Globe,
+  Calculator,
+  FileText,
 } from "lucide-react";
 
 interface ProfileData {
@@ -34,6 +39,44 @@ interface UsageStats {
   totalMinutes: number;
   lessonsWatched: number;
 }
+
+// أقسام المواد حسب المرحلة والشعبة
+const getCategoryButtons = (stage: string, section: string | null) => {
+  if (stage === "preparatory") {
+    return [
+      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
+      { id: "science", name: "العلوم", icon: Beaker, color: "from-blue-500 to-blue-600" },
+      { id: "social", name: "الدراسات", icon: Globe, color: "from-purple-500 to-purple-600" },
+      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
+    ];
+  }
+  
+  if (stage === "secondary" && section === "scientific") {
+    return [
+      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
+      { id: "scientific", name: "المواد العلمية", icon: Beaker, color: "from-blue-500 to-blue-600" },
+      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
+    ];
+  }
+  
+  if (stage === "secondary" && section === "literary") {
+    return [
+      { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
+      { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
+      { id: "literary", name: "المواد الأدبية", icon: FileText, color: "from-indigo-500 to-indigo-600" },
+      { id: "english", name: "الإنجليزية", icon: Languages, color: "from-red-500 to-red-600" },
+      { id: "french", name: "الفرنسية", icon: Globe, color: "from-pink-500 to-pink-600" },
+    ];
+  }
+  
+  // Default
+  return [
+    { id: "arabic", name: "المواد العربية", icon: BookText, color: "from-emerald-500 to-emerald-600" },
+    { id: "religious", name: "المواد الشرعية", icon: BookMarked, color: "from-amber-500 to-amber-600" },
+  ];
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -122,9 +165,9 @@ const Dashboard = () => {
   const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
     
-    // For preparatory stage, save immediately and navigate
+    // For preparatory stage, save immediately
     if (selectedStage === "preparatory") {
-      await saveOnboardingAndNavigate(selectedStage, gradeId, null);
+      await saveOnboarding(selectedStage, gradeId, null);
     } else {
       setSelectedSection(null);
     }
@@ -133,10 +176,10 @@ const Dashboard = () => {
   const handleSectionSelect = async (sectionId: string) => {
     setSelectedSection(sectionId);
     if (!selectedStage || !selectedGrade) return;
-    await saveOnboardingAndNavigate(selectedStage, selectedGrade, sectionId);
+    await saveOnboarding(selectedStage, selectedGrade, sectionId);
   };
 
-  const saveOnboardingAndNavigate = async (stage: string, grade: string, section: string | null) => {
+  const saveOnboarding = async (stage: string, grade: string, section: string | null) => {
     if (!user) return;
     
     setIsSaving(true);
@@ -169,9 +212,6 @@ const Dashboard = () => {
         title: "تم الحفظ",
         description: "تم حفظ بياناتك بنجاح",
       });
-
-      // Navigate to subjects
-      navigate(`/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`);
     } catch (error) {
       console.error("Error:", error);
     } finally {
@@ -194,6 +234,11 @@ const Dashboard = () => {
     navigate("/");
   };
 
+  const handleCategoryClick = (categoryId: string) => {
+    if (!profileData?.stage || !profileData?.grade) return;
+    navigate(`/subjects?stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}&category=${categoryId}`);
+  };
+
   const formatTime = (totalMinutes: number) => {
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -202,11 +247,6 @@ const Dashboard = () => {
 
   const time = formatTime(usageStats.totalMinutes);
 
-  // Get stage/grade labels for display
-  const getStageName = (stageId: string) => stages.find(s => s.id === stageId)?.name || stageId;
-  const getGradeName = (gradeId: string) => grades.find(g => g.id === gradeId)?.name || gradeId;
-  const getSectionName = (sectionId: string) => sections.find(s => s.id === sectionId)?.name || sectionId;
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -214,6 +254,11 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  // Get category buttons for current user
+  const categoryButtons = profileData?.stage 
+    ? getCategoryButtons(profileData.stage, profileData.section) 
+    : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -304,36 +349,39 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* إذا الطالب عنده بيانات محفوظة - يدخل مباشرة للمواد */}
+        {/* عرض أقسام المواد مباشرة */}
         {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <div className="animate-fade-in">
-            <div className="mb-8 p-6 rounded-xl bg-gradient-to-l from-primary/10 to-accent border border-primary/20">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
-                    <CheckCircle className="h-6 w-6 text-primary" />
-                    مرحباً بك مجدداً!
-                  </h2>
-                  <p className="text-muted-foreground">
-                    {getStageName(profileData.stage)} - {getGradeName(profileData.grade)}
-                    {profileData.section && ` - ${getSectionName(profileData.section)}`}
-                  </p>
-                </div>
-                <Button 
-                  size="lg"
-                  className="gap-2"
-                  onClick={() => navigate(`/subjects?stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}`)}
-                >
-                  <BookOpen className="h-5 w-5" />
-                  الذهاب للمواد
-                </Button>
-              </div>
+            <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
+              <BookOpen className="h-7 w-7 text-primary" />
+              أقسام المواد
+            </h2>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+              {categoryButtons.map((category) => {
+                const IconComponent = category.icon;
+                return (
+                  <Card
+                    key={category.id}
+                    className="cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-105 group overflow-hidden"
+                    onClick={() => handleCategoryClick(category.id)}
+                  >
+                    <CardContent className={`p-6 bg-gradient-to-br ${category.color} text-white text-center`}>
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <IconComponent className="h-8 w-8" />
+                      </div>
+                      <h3 className="text-lg font-bold">{category.name}</h3>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* زر تغيير المرحلة/الصف */}
             <div className="text-center">
               <Button 
                 variant="outline" 
+                size="sm"
                 onClick={() => {
                   setNeedsOnboarding(true);
                   setSelectedStage(null);
@@ -395,7 +443,7 @@ const Dashboard = () => {
                   اختر مرحلتك الدراسية
                 </h2>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                   {stages.map((stage) => (
                     <Card
                       key={stage.id}
@@ -417,13 +465,13 @@ const Dashboard = () => {
 
             {/* اختيار الصف */}
             {selectedStage && !selectedGrade && (
-              <div className="animate-slide-right">
+              <div className="animate-fade-in">
                 <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
                   <BookMarked className="h-7 w-7 text-primary" />
                   اختر صفك الدراسي
                 </h2>
 
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-3 gap-6 max-w-3xl mx-auto">
                   {grades.map((grade) => (
                     <Card
                       key={grade.id}
@@ -446,13 +494,13 @@ const Dashboard = () => {
 
             {/* اختيار الشعبة (للثانوية فقط) */}
             {selectedStage === "secondary" && selectedGrade && !selectedSection && (
-              <div className="animate-slide-right">
+              <div className="animate-fade-in">
                 <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
                   <GraduationCap className="h-7 w-7 text-primary" />
                   اختر شعبتك
                 </h2>
 
-                <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
+                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                   {sections.map((section) => (
                     <Card
                       key={section.id}
