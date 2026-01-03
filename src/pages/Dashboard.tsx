@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
+import { toast } from "@/hooks/use-toast";
 import {
   BookOpen,
   ChevronLeft,
@@ -18,6 +19,7 @@ import {
   Loader2,
   MessageSquare,
   Info,
+  CheckCircle,
 } from "lucide-react";
 
 interface ProfileData {
@@ -39,7 +41,10 @@ const Dashboard = () => {
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [usageStats, setUsageStats] = useState<UsageStats>({ totalMinutes: 0, lessonsWatched: 0 });
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
+  // Onboarding state
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [selectedStage, setSelectedStage] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
@@ -60,6 +65,13 @@ const Dashboard = () => {
           console.error("Error fetching profile:", profileError);
         } else if (profile) {
           setProfileData(profile);
+          
+          // Check if user needs onboarding (no stage/grade saved)
+          if (!profile.stage || !profile.grade) {
+            setNeedsOnboarding(true);
+          } else {
+            setNeedsOnboarding(false);
+          }
         }
 
         // Fetch usage stats
@@ -107,19 +119,64 @@ const Dashboard = () => {
     setSelectedSection(null);
   };
 
-  const handleGradeSelect = (gradeId: string) => {
+  const handleGradeSelect = async (gradeId: string) => {
     setSelectedGrade(gradeId);
+    
+    // For preparatory stage, save immediately and navigate
     if (selectedStage === "preparatory") {
-      navigate(`/subjects?stage=${selectedStage}&grade=${gradeId}`);
+      await saveOnboardingAndNavigate(selectedStage, gradeId, null);
     } else {
       setSelectedSection(null);
     }
   };
 
-  const handleSectionSelect = (sectionId: string) => {
+  const handleSectionSelect = async (sectionId: string) => {
     setSelectedSection(sectionId);
     if (!selectedStage || !selectedGrade) return;
-    navigate(`/subjects?stage=${selectedStage}&grade=${selectedGrade}&section=${sectionId}`);
+    await saveOnboardingAndNavigate(selectedStage, selectedGrade, sectionId);
+  };
+
+  const saveOnboardingAndNavigate = async (stage: string, grade: string, section: string | null) => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    try {
+      // Save to profile
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          stage,
+          grade,
+          section: section || null,
+        })
+        .eq("id", user.id);
+
+      if (error) {
+        console.error("Error saving profile:", error);
+        toast({
+          title: "خطأ",
+          description: "حدث خطأ أثناء حفظ البيانات",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local state
+      setProfileData(prev => prev ? { ...prev, stage, grade, section } : null);
+      setNeedsOnboarding(false);
+
+      toast({
+        title: "تم الحفظ",
+        description: "تم حفظ بياناتك بنجاح",
+      });
+
+      // Navigate to subjects
+      navigate(`/subjects?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}`);
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleBack = () => {
@@ -144,6 +201,11 @@ const Dashboard = () => {
   };
 
   const time = formatTime(usageStats.totalMinutes);
+
+  // Get stage/grade labels for display
+  const getStageName = (stageId: string) => stages.find(s => s.id === stageId)?.name || stageId;
+  const getGradeName = (gradeId: string) => grades.find(g => g.id === gradeId)?.name || gradeId;
+  const getSectionName = (sectionId: string) => sections.find(s => s.id === sectionId)?.name || sectionId;
 
   if (isLoading) {
     return (
@@ -242,94 +304,181 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* زر الرجوع */}
-        {(selectedStage || selectedGrade || selectedSection) && (
-          <Button variant="ghost" className="mb-4" onClick={handleBack}>
-            <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
-            رجوع
-          </Button>
-        )}
-
-        {/* اختيار المرحلة */}
-        {!selectedStage && (
+        {/* إذا الطالب عنده بيانات محفوظة - يدخل مباشرة للمواد */}
+        {!needsOnboarding && profileData?.stage && profileData?.grade && (
           <div className="animate-fade-in">
-            <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <GraduationCap className="h-7 w-7 text-primary" />
-              اختر مرحلتك الدراسية
-            </h2>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {stages.map((stage) => (
-                <Card
-                  key={stage.id}
-                  className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
-                  onClick={() => handleStageSelect(stage.id)}
+            <div className="mb-8 p-6 rounded-xl bg-gradient-to-l from-primary/10 to-accent border border-primary/20">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground mb-2 flex items-center gap-2">
+                    <CheckCircle className="h-6 w-6 text-primary" />
+                    مرحباً بك مجدداً!
+                  </h2>
+                  <p className="text-muted-foreground">
+                    {getStageName(profileData.stage)} - {getGradeName(profileData.grade)}
+                    {profileData.section && ` - ${getSectionName(profileData.section)}`}
+                  </p>
+                </div>
+                <Button 
+                  size="lg"
+                  className="gap-2"
+                  onClick={() => navigate(`/subjects?stage=${profileData.stage}&grade=${profileData.grade}${profileData.section ? `&section=${profileData.section}` : ""}`)}
                 >
-                  <CardContent className="p-8 text-center">
-                    <div className="text-5xl mb-4">{stage.icon}</div>
-                    <h3 className="text-xl font-bold text-foreground mb-2">{stage.name}</h3>
-                    <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground">
-                      اختيار <ChevronLeft className="h-4 w-4 mr-1" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                  <BookOpen className="h-5 w-5" />
+                  الذهاب للمواد
+                </Button>
+              </div>
+            </div>
+
+            {/* زر تغيير المرحلة/الصف */}
+            <div className="text-center">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setNeedsOnboarding(true);
+                  setSelectedStage(null);
+                  setSelectedGrade(null);
+                  setSelectedSection(null);
+                }}
+              >
+                <Settings className="h-4 w-4 ml-2" />
+                تغيير المرحلة أو الصف
+              </Button>
             </div>
           </div>
         )}
 
-        {/* اختيار الصف */}
-        {selectedStage && !selectedGrade && (
-          <div className="animate-slide-right">
-            <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <BookMarked className="h-7 w-7 text-primary" />
-              اختر صفك الدراسي
-            </h2>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              {grades.map((grade) => (
-                <Card
-                  key={grade.id}
-                  className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
-                  onClick={() => handleGradeSelect(grade.id)}
-                >
-                  <CardContent className="p-6 text-center">
-                    <div className="mx-auto w-16 h-16 rounded-full gradient-azhari flex items-center justify-center mb-4">
-                      <span className="text-2xl font-bold text-primary-foreground">
-                        {grade.id === "first" ? "١" : grade.id === "second" ? "٢" : "٣"}
-                      </span>
+        {/* Onboarding - اختيار المرحلة والصف للمرة الأولى */}
+        {needsOnboarding && (
+          <>
+            {/* Progress bar */}
+            <div className="mb-8">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${!selectedStage ? 'bg-primary text-primary-foreground' : 'bg-primary/20 text-primary'}`}>
+                  ١
+                </div>
+                <div className={`w-16 h-1 rounded ${selectedStage ? 'bg-primary' : 'bg-muted'}`} />
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedStage && !selectedGrade ? 'bg-primary text-primary-foreground' : selectedGrade ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                  ٢
+                </div>
+                {selectedStage === "secondary" && (
+                  <>
+                    <div className={`w-16 h-1 rounded ${selectedGrade ? 'bg-primary' : 'bg-muted'}`} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${selectedGrade && !selectedSection ? 'bg-primary text-primary-foreground' : selectedSection ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      ٣
                     </div>
-                    <h3 className="text-lg font-bold text-foreground">{grade.name}</h3>
-                  </CardContent>
-                </Card>
-              ))}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
+                <span className={!selectedStage ? 'text-primary font-medium' : ''}>المرحلة</span>
+                <span className={selectedStage && !selectedGrade ? 'text-primary font-medium' : ''}>الصف</span>
+                {selectedStage === "secondary" && (
+                  <span className={selectedGrade && !selectedSection ? 'text-primary font-medium' : ''}>الشعبة</span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* اختيار الشعبة (للثانوية فقط) */}
-        {selectedStage === "secondary" && selectedGrade && !selectedSection && (
-          <div className="animate-slide-right">
-            <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
-              <GraduationCap className="h-7 w-7 text-primary" />
-              اختر شعبتك
-            </h2>
+            {/* زر الرجوع */}
+            {(selectedStage || selectedGrade || selectedSection) && (
+              <Button variant="ghost" className="mb-4" onClick={handleBack} disabled={isSaving}>
+                <ChevronLeft className="h-5 w-5 rotate-180 ml-1" />
+                رجوع
+              </Button>
+            )}
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
-              {sections.map((section) => (
-                <Card
-                  key={section.id}
-                  className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
-                  onClick={() => handleSectionSelect(section.id)}
-                >
-                  <CardContent className="p-8 text-center">
-                    <div className="text-4xl mb-4">{section.icon}</div>
-                    <h3 className="text-xl font-bold text-foreground">{section.name}</h3>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+            {/* اختيار المرحلة */}
+            {!selectedStage && (
+              <div className="animate-fade-in">
+                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <GraduationCap className="h-7 w-7 text-primary" />
+                  اختر مرحلتك الدراسية
+                </h2>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {stages.map((stage) => (
+                    <Card
+                      key={stage.id}
+                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      onClick={() => handleStageSelect(stage.id)}
+                    >
+                      <CardContent className="p-8 text-center">
+                        <div className="text-5xl mb-4">{stage.icon}</div>
+                        <h3 className="text-xl font-bold text-foreground mb-2">{stage.name}</h3>
+                        <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground">
+                          اختيار <ChevronLeft className="h-4 w-4 mr-1" />
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* اختيار الصف */}
+            {selectedStage && !selectedGrade && (
+              <div className="animate-slide-right">
+                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <BookMarked className="h-7 w-7 text-primary" />
+                  اختر صفك الدراسي
+                </h2>
+
+                <div className="grid md:grid-cols-3 gap-6">
+                  {grades.map((grade) => (
+                    <Card
+                      key={grade.id}
+                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      onClick={() => handleGradeSelect(grade.id)}
+                    >
+                      <CardContent className="p-6 text-center">
+                        <div className="mx-auto w-16 h-16 rounded-full gradient-azhari flex items-center justify-center mb-4">
+                          <span className="text-2xl font-bold text-primary-foreground">
+                            {grade.id === "first" ? "١" : grade.id === "second" ? "٢" : "٣"}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-bold text-foreground">{grade.name}</h3>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* اختيار الشعبة (للثانوية فقط) */}
+            {selectedStage === "secondary" && selectedGrade && !selectedSection && (
+              <div className="animate-slide-right">
+                <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
+                  <GraduationCap className="h-7 w-7 text-primary" />
+                  اختر شعبتك
+                </h2>
+
+                <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
+                  {sections.map((section) => (
+                    <Card
+                      key={section.id}
+                      className="cursor-pointer hover:border-primary hover:shadow-lg transition-all group"
+                      onClick={() => handleSectionSelect(section.id)}
+                    >
+                      <CardContent className="p-8 text-center">
+                        <div className="text-4xl mb-4">{section.icon}</div>
+                        <h3 className="text-xl font-bold text-foreground">{section.name}</h3>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading state while saving */}
+            {isSaving && (
+              <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50">
+                <div className="text-center">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                  <p className="text-lg font-medium">جاري حفظ البيانات...</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
