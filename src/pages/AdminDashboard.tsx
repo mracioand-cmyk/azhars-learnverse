@@ -818,11 +818,12 @@ const ContentTab = () => {
   const [uploadForm, setUploadForm] = useState({
     title: "",
     type: "",
-    file_url: "",
     subject_id: "",
     description: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
@@ -848,31 +849,105 @@ const ContentTab = () => {
     fetchData();
   }, [fetchData]);
 
+  // Get the appropriate bucket based on content type
+  const getBucketName = (type: string): string => {
+    switch (type) {
+      case "video":
+        return "videos";
+      case "pdf":
+      case "summary":
+        return "books";
+      case "exam":
+        return "exams";
+      default:
+        return "books";
+    }
+  };
+
+  // Get accepted file types based on content type
+  const getAcceptedFileTypes = (type: string): string => {
+    switch (type) {
+      case "video":
+        return "video/*";
+      case "pdf":
+      case "summary":
+      case "exam":
+        return ".pdf";
+      default:
+        return "*/*";
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 50MB)
+      const maxSize = 50 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error("حجم الملف كبير جداً (الحد الأقصى 50MB)");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const handleUpload = async () => {
-    if (!uploadForm.title || !uploadForm.type || !uploadForm.file_url || !uploadForm.subject_id) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة");
+    if (!uploadForm.title || !uploadForm.type || !selectedFile || !uploadForm.subject_id) {
+      toast.error("يرجى ملء جميع الحقول المطلوبة واختيار ملف");
       return;
     }
 
     setUploading(true);
+    setUploadProgress(0);
+
     try {
-      const { error } = await supabase.from("content").insert({
+      // Generate unique file name
+      const fileExt = selectedFile.name.split(".").pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const bucketName = getBucketName(uploadForm.type);
+      const filePath = `${uploadForm.subject_id}/${fileName}`;
+
+      // Upload file to Supabase Storage
+      setUploadProgress(20);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(filePath, selectedFile, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(70);
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      const fileUrl = urlData.publicUrl;
+
+      // Save content to database
+      const { error: dbError } = await supabase.from("content").insert({
         title: uploadForm.title,
         type: uploadForm.type,
-        file_url: uploadForm.file_url,
+        file_url: fileUrl,
         subject_id: uploadForm.subject_id,
         description: uploadForm.description,
       });
 
-      if (error) throw error;
+      if (dbError) throw dbError;
 
+      setUploadProgress(100);
       toast.success("تم رفع المحتوى بنجاح");
       setShowUploadDialog(false);
-      setUploadForm({ title: "", type: "", file_url: "", subject_id: "", description: "" });
+      setUploadForm({ title: "", type: "", subject_id: "", description: "" });
+      setSelectedFile(null);
+      setUploadProgress(0);
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading content:", error);
-      toast.error("خطأ في رفع المحتوى");
+      toast.error(error.message || "خطأ في رفع المحتوى");
     } finally {
       setUploading(false);
     }
@@ -880,6 +955,20 @@ const ContentTab = () => {
 
   const handleDelete = async (id: string) => {
     try {
+      // Get content to delete file from storage
+      const contentToDelete = contents.find((c) => c.id === id);
+      
+      if (contentToDelete?.file_url) {
+        // Extract file path from URL and delete from storage
+        const url = new URL(contentToDelete.file_url);
+        const pathParts = url.pathname.split("/storage/v1/object/public/");
+        if (pathParts.length > 1) {
+          const [bucket, ...filePathParts] = pathParts[1].split("/");
+          const filePath = filePathParts.join("/");
+          await supabase.storage.from(bucket).remove([filePath]);
+        }
+      }
+
       const { error } = await supabase.from("content").delete().eq("id", id);
       if (error) throw error;
       toast.success("تم حذف المحتوى");
@@ -889,6 +978,11 @@ const ContentTab = () => {
       toast.error("خطأ في حذف المحتوى");
     }
   };
+
+  // Reset file when type changes
+  useEffect(() => {
+    setSelectedFile(null);
+  }, [uploadForm.type]);
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -1098,13 +1192,34 @@ const ContentTab = () => {
               </Select>
             </div>
             <div>
-              <Label>رابط الملف *</Label>
-              <Input
-                value={uploadForm.file_url}
-                onChange={(e) => setUploadForm({ ...uploadForm, file_url: e.target.value })}
-                placeholder="https://..."
-                dir="ltr"
-              />
+              <Label>الملف *</Label>
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept={uploadForm.type ? getAcceptedFileTypes(uploadForm.type) : "*/*"}
+                  onChange={handleFileChange}
+                  disabled={!uploadForm.type}
+                  className="cursor-pointer"
+                />
+                {!uploadForm.type && (
+                  <p className="text-xs text-muted-foreground">اختر نوع المحتوى أولاً</p>
+                )}
+                {selectedFile && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    <span>{selectedFile.name}</span>
+                    <span className="text-xs">({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  </div>
+                )}
+                {uploading && uploadProgress > 0 && (
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <Label>الوصف (اختياري)</Label>
@@ -1119,9 +1234,9 @@ const ContentTab = () => {
             <Button variant="outline" onClick={() => setShowUploadDialog(false)}>
               إلغاء
             </Button>
-            <Button onClick={handleUpload} disabled={uploading}>
+            <Button onClick={handleUpload} disabled={uploading || !selectedFile}>
               {uploading ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Upload className="h-4 w-4 ml-2" />}
-              رفع
+              {uploading ? `جاري الرفع ${uploadProgress}%` : "رفع"}
             </Button>
           </DialogFooter>
         </DialogContent>
