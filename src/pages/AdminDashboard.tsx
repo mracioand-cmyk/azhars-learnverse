@@ -303,7 +303,7 @@ const AdminDashboard = () => {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {/* زر الرفع الخاص */}
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/admin/upload")}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-4"
           >
             <Upload className="h-5 w-5" />
