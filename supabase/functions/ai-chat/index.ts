@@ -5,143 +5,117 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type ChatMsg = { role: "user" | "assistant"; content: string };
+
+function stageLabel(stage?: string) {
+  if (stage === "preparatory") return "المرحلة الإعدادية";
+  if (stage === "secondary") return "المرحلة الثانوية";
+  return undefined;
+}
+
+function gradeLabel(grade?: string) {
+  if (grade === "first") return "الصف الأول";
+  if (grade === "second") return "الصف الثاني";
+  if (grade === "third") return "الصف الثالث";
+  return undefined;
+}
+
+function sectionLabel(section?: string | null) {
+  if (section === "scientific") return "علمي";
+  if (section === "literary") return "أدبي";
+  return undefined;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, subjectName, stage, grade, section } = await req.json();
-    
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+    const body = await req.json().catch(() => ({}));
+    const messages = (body?.messages ?? []) as ChatMsg[];
+    const subjectName = (body?.subjectName ?? "") as string;
+    const stage = body?.stage as string | undefined;
+    const grade = body?.grade as string | undefined;
+    const section = (body?.section ?? null) as string | null;
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "الرسائل غير صالحة" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Build context about the subject
-    let subjectContext = `أنت مساعد تعليمي ذكي لمنصة "أزهاريون" التعليمية الأزهرية.`;
-    subjectContext += `\nالمادة الحالية: ${subjectName}`;
-    
-    if (stage) {
-      const stageLabel = stage === "preparatory" ? "المرحلة الإعدادية" : "المرحلة الثانوية";
-      subjectContext += `\nالمرحلة: ${stageLabel}`;
-    }
-    
-    if (grade) {
-      const gradeLabel = grade === "first" ? "الصف الأول" : grade === "second" ? "الصف الثاني" : "الصف الثالث";
-      subjectContext += `\nالصف: ${gradeLabel}`;
-    }
-    
-    if (section) {
-      const sectionLabel = section === "scientific" ? "علمي" : "أدبي";
-      subjectContext += `\nالشعبة: ${sectionLabel}`;
-    }
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = `${subjectContext}
+    const metaParts: string[] = [];
+    if (subjectName) metaParts.push(`المادة: ${subjectName}`);
+    const s = stageLabel(stage);
+    const g = gradeLabel(grade);
+    const sec = sectionLabel(section);
+    if (s) metaParts.push(`المرحلة: ${s}`);
+    if (g) metaParts.push(`الصف: ${g}`);
+    if (sec) metaParts.push(`الشعبة: ${sec}`);
 
-مهمتك:
-- مساعدة الطلاب في فهم المادة والإجابة على أسئلتهم
-- شرح المفاهيم بطريقة سهلة ومبسطة
-- تقديم أمثلة توضيحية عند الحاجة
-- التشجيع والتحفيز للطلاب
-- الرد باللغة العربية الفصحى
-- إذا كان السؤال خارج نطاق المادة، وجه الطالب بلطف للسؤال المناسب
+    const systemPrompt = `أنت مساعد تعليمي ذكي لمنصة "أزهاريون".
+${metaParts.length ? metaParts.join("\n") : ""}
 
-أسلوبك:
-- ودود ومشجع
-- واضح ومباشر
-- استخدم الأمثلة والتشبيهات
-- قسم الإجابات الطويلة لنقاط
-- استخدم الرموز التعبيرية باعتدال 📚✨`;
+قواعد مهمة:
+- اشرح للطلاب ببساطة وباللغة العربية الفصحى.
+- قدّم أمثلة قصيرة وخطوات عند الحاجة.
+- إذا كان السؤال خارج نطاق المادة، وضّح ذلك بلطف واقترح سؤالاً مناسباً.
+- لا تختلق معلومات؛ إذا لم تكن متأكدًا قل: لا أعلم.
+`;
 
-    // Format messages for Gemini API
-    const geminiMessages = messages.map((msg: { role: string; content: string }) => ({
-      role: msg.role === "user" ? "user" : "model",
-      parts: [{ text: msg.content }]
-    }));
-
-    // Add system instruction as first user message if not already present
-    const contents = [
-      {
-        role: "user",
-        parts: [{ text: systemPrompt }]
+    const gatewayResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      {
-        role: "model", 
-        parts: [{ text: "فهمت! أنا جاهز لمساعدة الطلاب في هذه المادة. كيف يمكنني مساعدتك؟" }]
-      },
-      ...geminiMessages
-    ];
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "تم تجاوز حد الطلبات، يرجى المحاولة بعد قليل" }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    // Extract the response text
-    const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-      "عذراً، لم أتمكن من معالجة طلبك. حاول مرة أخرى.";
-
-    return new Response(
-      JSON.stringify({ response: aiResponse }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-
-  } catch (error) {
-    console.error("AI chat error:", error);
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : "حدث خطأ غير متوقع" 
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        temperature: 0.7,
+        messages: [{ role: "system", content: systemPrompt }, ...messages],
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    });
+
+    if (!gatewayResp.ok) {
+      const t = await gatewayResp.text();
+      console.error("AI gateway error:", gatewayResp.status, t);
+
+      if (gatewayResp.status === 429) {
+        return new Response(JSON.stringify({ error: "المساعد مشغول الآن. حاول بعد دقيقة." }), {
+          status: 429,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (gatewayResp.status === 402) {
+        return new Response(JSON.stringify({ error: "تم استنفاد رصيد الذكاء الاصطناعي. يرجى إضافة رصيد ثم إعادة المحاولة." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "حدث خطأ في خدمة الذكاء الاصطناعي." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const data = await gatewayResp.json().catch(() => ({} as any));
+    const content = data?.choices?.[0]?.message?.content as string | undefined;
+
+    return new Response(JSON.stringify({ response: content ?? "عذراً، لم أتمكن من الرد الآن. حاول مرة أخرى." }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("ai-chat error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "خطأ غير متوقع" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
