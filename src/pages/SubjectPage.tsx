@@ -212,45 +212,47 @@ const SubjectPage = () => {
     if (!chatInput.trim() || isChatLoading) return;
 
     const userMessage = chatInput.trim();
+    const nextMessages = [...chatMessages, { role: "user" as const, content: userMessage }];
+
     setChatInput("");
-    setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setChatMessages(nextMessages);
     setIsChatLoading(true);
 
     try {
-      // Get only user messages for the API call (exclude the initial welcome)
-      const apiMessages = chatMessages
-        .filter(m => m.role === "user" || chatMessages.indexOf(m) > 0)
-        .concat([{ role: "user" as const, content: userMessage }]);
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // function is public (verify_jwt=false) but we still pass publishable key for compatibility
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          // Keep recent context only
+          messages: nextMessages.slice(-16),
+          subjectName: subject?.name,
+          stage: subject?.stage,
+          grade: subject?.grade,
+          section: subject?.section,
+        }),
+      });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: apiMessages,
-            subjectName: subject?.name,
-            stage: subject?.stage,
-            grade: subject?.grade,
-            section: subject?.section,
-          }),
+      const raw = await response.text();
+      const parsed = (() => {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return {} as any;
         }
-      );
+      })();
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "فشل الاتصال بالمساعد الذكي");
+        const msg = parsed?.error || "فشل الاتصال بالمساعد الذكي";
+        throw new Error(msg);
       }
 
-      const data = await response.json();
-      
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: data.response },
-      ]);
+      const aiText = parsed?.response as string | undefined;
+      setChatMessages((prev) => [...prev, { role: "assistant", content: aiText || "عذراً، لم أتمكن من الرد." }]);
     } catch (error) {
       console.error("AI chat error:", error);
       setChatMessages((prev) => [
