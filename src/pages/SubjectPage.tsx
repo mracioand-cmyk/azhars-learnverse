@@ -83,12 +83,22 @@ const SubjectPage = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
 
-  // AI chat (mock for now)
+  // AI chat with Gemini
   const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: "مرحباً! اسألني أي سؤال وسأحاول مساعدتك." },
-  ]);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Initialize welcome message when subject loads
+  useEffect(() => {
+    if (subject) {
+      setChatMessages([
+        { 
+          role: "assistant", 
+          content: `مرحباً! 👋 أنا مساعدك الذكي في مادة "${subject.name}".\n\nاسألني أي سؤال عن المادة وسأساعدك في الفهم والشرح! 📚✨` 
+        },
+      ]);
+    }
+  }, [subject]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage");
@@ -206,17 +216,58 @@ const SubjectPage = () => {
     setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsChatLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      // Get only user messages for the API call (exclude the initial welcome)
+      const apiMessages = chatMessages
+        .filter(m => m.role === "user" || chatMessages.indexOf(m) > 0)
+        .concat([{ role: "user" as const, content: userMessage }]);
 
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content:
-          "حالياً المساعد الذكي في هذه الصفحة (نسخة أولية). لو تريد تفعيل إجابات من الكتب فعلياً، قلّي وسأربطه بمصادر الكتب المرفوعة.",
-      },
-    ]);
-    setIsChatLoading(false);
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: apiMessages,
+            subjectName: subject?.name,
+            stage: subject?.stage,
+            grade: subject?.grade,
+            section: subject?.section,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "فشل الاتصال بالمساعد الذكي");
+      }
+
+      const data = await response.json();
+      
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response },
+      ]);
+    } catch (error) {
+      console.error("AI chat error:", error);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "عذراً، حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى. 🔄",
+        },
+      ]);
+      toast({
+        title: "خطأ",
+        description: error instanceof Error ? error.message : "فشل الاتصال بالمساعد",
+        variant: "destructive",
+      });
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -629,7 +680,7 @@ const SubjectPage = () => {
                   </Button>
                 </form>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  يمكن تطوير هذا القسم ليرد من الكتب المرفوعة فعلياً.
+                  مدعوم بـ Gemini AI - اسأل أي سؤال عن المادة 🤖
                 </p>
               </div>
             </Card>
