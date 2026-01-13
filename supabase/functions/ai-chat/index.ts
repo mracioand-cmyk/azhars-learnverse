@@ -58,57 +58,84 @@ serve(async (req) => {
     if (g) metaParts.push(`الصف: ${g}`);
     if (sec) metaParts.push(`الشعبة: ${sec}`);
 
-    const systemPrompt = `أنت مساعد تعليمي ذكي لمنصة "أزهاريون".
+    const systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية.
 ${metaParts.length ? metaParts.join("\n") : ""}
 
 قواعد مهمة:
-- اشرح للطلاب ببساطة وباللغة العربية الفصحى.
-- قدّم أمثلة قصيرة وخطوات عند الحاجة.
-- إذا كان السؤال خارج نطاق المادة، وضّح ذلك بلطف واقترح سؤالاً مناسباً.
-- لا تختلق معلومات؛ إذا لم تكن متأكدًا قل: لا أعلم.
+- أجب باللغة العربية الفصحى وبأسلوب واضح.
+- يمكنك الإجابة عن أي سؤال عام (ليس شرطاً أن يكون داخل المادة).
+- إذا كان السؤال مرتبطاً بالمادة/المرحلة/الصف، اجعل الشرح مناسباً لهذا السياق.
+- لا تختلق معلومات؛ إذا لم تكن متأكداً قل: لا أعلم.
+- ملاحظة: لا تذكر أنك "تتصفح الإنترنت" أو لديك وصول مباشر للأخبار اللحظية.
 `;
 
-    const gatewayResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        temperature: 0.7,
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-      }),
-    });
-
-    if (!gatewayResp.ok) {
-      const t = await gatewayResp.text();
-      console.error("AI gateway error:", gatewayResp.status, t);
-
-      if (gatewayResp.status === 429) {
-        return new Response(JSON.stringify({ error: "المساعد مشغول الآن. حاول بعد دقيقة." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      if (gatewayResp.status === 402) {
-        return new Response(JSON.stringify({ error: "تم استنفاد رصيد الذكاء الاصطناعي. يرجى إضافة رصيد ثم إعادة المحاولة." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ error: "حدث خطأ في خدمة الذكاء الاصطناعي." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const callGateway = async (model: string) => {
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.7,
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+        }),
       });
+
+      if (!resp.ok) {
+        const t = await resp.text().catch(() => "");
+        return { ok: false as const, status: resp.status, text: t };
+      }
+
+      const data = await resp.json().catch(() => ({} as any));
+      const content = data?.choices?.[0]?.message?.content as string | undefined;
+      return { ok: true as const, content, data };
+    };
+
+    // نحاول أولاً Gemini (الأسرع) ثم نعيد المحاولة بنموذج بديل إذا خرج رد فارغ.
+    const modelsToTry = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"]; // fallback
+
+    for (const model of modelsToTry) {
+      const result = await callGateway(model);
+
+      if (!result.ok) {
+        // أخطاء الدفع/الحدود لا معنى لإعادة المحاولة معها
+        if (result.status === 429) {
+          return new Response(JSON.stringify({ error: "المساعد مشغول الآن. حاول بعد دقيقة." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (result.status === 402) {
+          return new Response(
+            JSON.stringify({ error: "تم استنفاد رصيد الذكاء الاصطناعي. يرجى إضافة رصيد ثم إعادة المحاولة." }),
+            {
+              status: 402,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+          );
+        }
+
+        console.error("AI gateway error:", result.status, result.text);
+        // نجرب النموذج التالي في حال كان الخطأ مؤقتاً
+        continue;
+      }
+
+      const content = (result.content ?? "").trim();
+      if (content) {
+        return new Response(JSON.stringify({ response: content }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // رد فارغ: نجرب نموذج بديل
+      console.warn("AI gateway returned empty content for model:", model, result.data);
     }
 
-    const data = await gatewayResp.json().catch(() => ({} as any));
-    const content = data?.choices?.[0]?.message?.content as string | undefined;
-
-    return new Response(JSON.stringify({ response: content ?? "عذراً، لم أتمكن من الرد الآن. حاول مرة أخرى." }), {
+    return new Response(JSON.stringify({ error: "عذراً، لم أتمكن من توليد رد الآن. حاول مرة أخرى." }), {
+      status: 502,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
