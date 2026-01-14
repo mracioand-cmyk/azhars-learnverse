@@ -219,39 +219,36 @@ const SubjectPage = () => {
     setIsChatLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // function is public (verify_jwt=false) but we still pass publishable key for compatibility
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
+      // استخدم invoke بدل fetch + env vars (لتفادي مشكلة undefined في بعض بيئات النشر)
+      const { data, error } = await supabase.functions.invoke("ai-chat", {
+        body: {
           // Keep recent context only
           messages: nextMessages.slice(-16),
           subjectName: subject?.name,
           stage: subject?.stage,
           grade: subject?.grade,
           section: subject?.section,
-        }),
+        },
       });
 
-      const raw = await response.text();
-      const parsed = (() => {
+      if (error) {
+        // حاول استخراج رسالة الخطأ الراجعة من الدالة
+        let msg = "فشل الاتصال بالمساعد الذكي";
         try {
-          return JSON.parse(raw);
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const parsed = await ctx.json();
+            if (parsed?.error) msg = parsed.error;
+          } else if ((error as any)?.message) {
+            msg = (error as any).message;
+          }
         } catch {
-          return {} as any;
+          // ignore
         }
-      })();
-
-      if (!response.ok) {
-        const msg = parsed?.error || "فشل الاتصال بالمساعد الذكي";
         throw new Error(msg);
       }
 
-      const aiText = parsed?.response as string | undefined;
+      const aiText = (data as any)?.response as string | undefined;
       setChatMessages((prev) => [...prev, { role: "assistant", content: aiText || "عذراً، لم أتمكن من الرد." }]);
     } catch (error) {
       console.error("AI chat error:", error);
