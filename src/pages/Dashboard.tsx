@@ -18,6 +18,7 @@ import {
   Loader2,
   MessageSquare,
   Info,
+  Bot,
   BookMarked,
   Beaker,
   Languages,
@@ -386,6 +387,21 @@ const Dashboard = () => {
                   </Card>
                 );
               })}
+
+              {/* كارد المساعد الذكي */}
+              <Card
+                className="cursor-pointer border-0 bg-gradient-to-br from-fuchsia-500 via-purple-500 to-violet-600 text-white shadow-xl shadow-fuchsia-500/30 hover:shadow-2xl transition-all duration-500 hover:scale-105 hover:-translate-y-2 group overflow-hidden relative"
+                onClick={() => navigate("/ai-chat")}
+              >
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" />
+                <CardContent className="p-8 text-center relative">
+                  <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-lg">
+                    <Bot className="h-10 w-10" />
+                  </div>
+                  <h3 className="text-xl font-bold tracking-wide">المساعد الذكي</h3>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )}
