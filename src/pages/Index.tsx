@@ -61,51 +61,51 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-background overflow-x-hidden">
       <Header />
 
       <main className="flex-1">
         {/* قسم البطل */}
-        <section className="relative overflow-hidden gradient-azhari py-20 lg:py-32">
+        <section className="relative overflow-hidden gradient-azhari py-12 lg:py-20 xl:py-32">
           <div className="absolute inset-0 pattern-islamic opacity-10" />
-          <div className="container relative px-4">
+          <div className="container relative px-4 max-w-full">
             <div className="mx-auto max-w-4xl text-center">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-4 py-2 text-sm text-primary-foreground backdrop-blur animate-fade-in">
-                <Star className="h-4 w-4 text-gold" />
+              <div className="mb-4 lg:mb-6 inline-flex items-center gap-2 rounded-full bg-primary-foreground/10 px-3 lg:px-4 py-1.5 lg:py-2 text-xs lg:text-sm text-primary-foreground backdrop-blur animate-fade-in">
+                <Star className="h-3 w-3 lg:h-4 lg:w-4 text-gold" />
                 <span>منصة تعليمية متكاملة لطلاب الأزهر</span>
               </div>
 
-              <h1 className="mb-6 text-4xl font-bold leading-tight text-primary-foreground md:text-5xl lg:text-6xl animate-slide-up">
+              <h1 className="mb-4 lg:mb-6 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-bold leading-tight text-primary-foreground animate-slide-up">
                 تعلّم بطريقة
-                <span className="block text-gold mt-2">أسهل وأذكى</span>
+                <span className="block text-gold mt-1 lg:mt-2">أسهل وأذكى</span>
               </h1>
 
-              <p className="mb-10 text-lg text-primary-foreground/80 md:text-xl max-w-2xl mx-auto animate-slide-up delay-100">
+              <p className="mb-6 lg:mb-10 text-sm lg:text-lg xl:text-xl text-primary-foreground/80 max-w-2xl mx-auto animate-slide-up delay-100 px-2">
                 منصة أزهاريون توفر لك كل ما تحتاجه من مناهج وكتب وفيديوهات شرح مع مساعد ذكي يجيب على أسئلتك من الكتب مباشرة
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-slide-up delay-200">
-                <Button variant="gold" size="xl" asChild>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 lg:gap-4 animate-slide-up delay-200">
+                <Button variant="gold" size="lg" asChild className="w-full sm:w-auto">
                   <Link to="/auth?mode=register" className="gap-2">
                     ابدأ رحلتك التعليمية
-                    <ChevronLeft className="h-5 w-5" />
+                    <ChevronLeft className="h-4 w-4 lg:h-5 lg:w-5" />
                   </Link>
                 </Button>
-                <Button variant="heroOutline" size="xl" asChild>
+                <Button variant="heroOutline" size="lg" asChild className="w-full sm:w-auto">
                   <Link to="/about">اعرف المزيد</Link>
                 </Button>
               </div>
             </div>
 
             {/* الإحصائيات */}
-            <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 animate-slide-up delay-300">
+            <div className="mt-10 lg:mt-16 grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-6 animate-slide-up delay-300">
               {stats.map((stat, index) => (
                 <div
                   key={index}
-                  className="text-center p-6 rounded-xl bg-primary-foreground/10 backdrop-blur"
+                  className="text-center p-3 lg:p-6 rounded-xl bg-primary-foreground/10 backdrop-blur"
                 >
-                  <div className="text-3xl font-bold text-gold mb-1">{stat.value}</div>
-                  <div className="text-sm text-primary-foreground/70">{stat.label}</div>
+                  <div className="text-xl lg:text-3xl font-bold text-gold mb-0.5 lg:mb-1">{stat.value}</div>
+                  <div className="text-xs lg:text-sm text-primary-foreground/70">{stat.label}</div>
                 </div>
               ))}
             </div>

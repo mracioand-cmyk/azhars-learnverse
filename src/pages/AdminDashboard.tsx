@@ -282,77 +282,115 @@ const AdminDashboard = () => {
     return null;
   }
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-background flex" dir="rtl">
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 right-0 left-0 z-50 bg-card border-b border-border p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+            <BookOpen className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="font-bold text-foreground text-sm">أزهاريون</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="h-8 w-8"
+        >
+          {sidebarOpen ? <XCircle className="h-5 w-5" /> : <BarChart3 className="h-5 w-5" />}
+        </Button>
+      </div>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed right-0 top-0 h-screen w-64 bg-card border-l border-border flex flex-col z-40">
+      <aside className={cn(
+        "fixed right-0 top-0 h-screen w-64 bg-card border-l border-border flex flex-col z-50 transition-transform duration-300",
+        "lg:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+      )}>
         {/* Logo */}
-        <div className="p-6 border-b border-border">
+        <div className="p-4 lg:p-6 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            <div className="flex h-8 w-8 lg:h-10 lg:w-10 items-center justify-center rounded-lg bg-primary">
+              <BookOpen className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
             </div>
             <div>
-              <span className="font-bold text-foreground">أزهاريون</span>
-              <p className="text-xs text-muted-foreground">لوحة التحكم</p>
+              <span className="font-bold text-foreground text-sm lg:text-base">أزهاريون</span>
+              <p className="text-xs text-muted-foreground hidden lg:block">لوحة التحكم</p>
             </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-3 lg:p-4 space-y-1 overflow-y-auto">
           {/* زر الرفع الخاص */}
           <button
-            onClick={() => navigate("/admin/upload")}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-4"
+            onClick={() => {
+              navigate("/admin/upload");
+              setSidebarOpen(false);
+            }}
+            className="w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/30 mb-3 lg:mb-4"
           >
-            <Upload className="h-5 w-5" />
-            رفع المحتوى
+            <Upload className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <span className="truncate">رفع المحتوى</span>
           </button>
 
-          <Separator className="my-3" />
+          <Separator className="my-2 lg:my-3" />
 
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                setSidebarOpen(false);
+              }}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
+                "w-full flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg text-xs lg:text-sm font-medium transition-all",
                 activeTab === item.id
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
         </nav>
 
         {/* Admin Info */}
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-accent/50 mb-3">
-            <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center">
-              <User className="h-5 w-5 text-primary-foreground" />
+        <div className="p-3 lg:p-4 border-t border-border">
+          <div className="flex items-center gap-2 lg:gap-3 px-3 lg:px-4 py-2 lg:py-3 rounded-lg bg-accent/50 mb-2 lg:mb-3">
+            <div className="h-8 w-8 lg:h-10 lg:w-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+              <User className="h-4 w-4 lg:h-5 lg:w-5 text-primary-foreground" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">المدير</p>
-              <p className="text-xs text-muted-foreground">مدير النظام</p>
+            <div className="min-w-0">
+              <p className="text-xs lg:text-sm font-medium text-foreground truncate">المدير</p>
+              <p className="text-xs text-muted-foreground truncate hidden lg:block">مدير النظام</p>
             </div>
           </div>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="w-full justify-start gap-2 lg:gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-xs lg:text-sm"
             onClick={handleSignOut}
           >
-            <LogOut className="h-5 w-5" />
-            تسجيل الخروج
+            <LogOut className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+            <span className="truncate">تسجيل الخروج</span>
           </Button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 mr-64 p-8">
+      <main className="flex-1 lg:mr-64 p-4 lg:p-8 pt-20 lg:pt-8 w-full max-w-full overflow-x-hidden">
         {activeTab === "overview" && <OverviewTab />}
         {activeTab === "students" && <StudentsTab />}
         {activeTab === "teachers" && <TeachersTab />}
@@ -457,11 +495,11 @@ const OverviewTab = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">نظرة عامة</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="space-y-4 lg:space-y-6 w-full max-w-full">
+        <h2 className="text-xl lg:text-2xl font-bold">نظرة عامة</h2>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
           {[...Array(7)].map((_, i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-24 lg:h-32" />
           ))}
         </div>
       </div>
@@ -469,21 +507,21 @@ const OverviewTab = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold flex items-center gap-2">
-        <BarChart3 className="h-6 w-6" />
-        نظرة عامة
+    <div className="space-y-4 lg:space-y-6 w-full max-w-full">
+      <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
+        <BarChart3 className="h-5 w-5 lg:h-6 lg:w-6 flex-shrink-0" />
+        <span className="truncate">نظرة عامة</span>
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
         {statCards.map((stat, index) => (
-          <Card key={index}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-3xl font-bold mt-2">{stat.value}</p>
+          <Card key={index} className="overflow-hidden">
+            <CardContent className="p-3 lg:p-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs lg:text-sm text-muted-foreground truncate">{stat.title}</p>
+                  <p className="text-xl lg:text-3xl font-bold mt-1 lg:mt-2">{stat.value}</p>
                 </div>
-                <stat.icon className={cn("h-10 w-10", stat.color)} />
+                <stat.icon className={cn("h-6 w-6 lg:h-10 lg:w-10 flex-shrink-0", stat.color)} />
               </div>
             </CardContent>
           </Card>
