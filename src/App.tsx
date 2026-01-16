@@ -15,6 +15,7 @@ import PendingApproval from "./pages/PendingApproval";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import AiChat from "./pages/AiChat";
+import SubjectAiChat from "./pages/SubjectAiChat";
 
 // Admin pages
 import AdminStudentsPage from "./pages/admin/StudentsPage";
@@ -72,6 +73,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <SubjectPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/subject/:subjectId/ai-chat"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <SubjectAiChat />
                 </ProtectedRoute>
               }
             />

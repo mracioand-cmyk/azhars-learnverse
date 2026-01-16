@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,14 +19,12 @@ import {
   Download,
   Play,
   Bot,
-  Send,
   Loader2,
   FileQuestion,
   Plus,
   Trash2,
   Edit,
   Eye,
-  File,
 } from "lucide-react";
 
 type SubjectRow = {
@@ -83,22 +80,6 @@ const SubjectPage = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
 
-  // AI chat with Gemini
-  const [chatInput, setChatInput] = useState("");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [isChatLoading, setIsChatLoading] = useState(false);
-
-  // Initialize welcome message when subject loads
-  useEffect(() => {
-    if (subject) {
-      setChatMessages([
-        { 
-          role: "assistant", 
-          content: `مرحباً! 👋 أنا مساعدك الذكي في مادة "${subject.name}".\n\nاسألني أي سؤال عن المادة وسأساعدك في الفهم والشرح! 📚✨` 
-        },
-      ]);
-    }
-  }, [subject]);
 
   const backTo = useMemo(() => {
     const stage = searchParams.get("stage");
@@ -208,67 +189,6 @@ const SubjectPage = () => {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!chatInput.trim() || isChatLoading) return;
-
-    const userMessage = chatInput.trim();
-    const nextMessages = [...chatMessages, { role: "user" as const, content: userMessage }];
-
-    setChatInput("");
-    setChatMessages(nextMessages);
-    setIsChatLoading(true);
-
-    try {
-      // استخدم invoke بدل fetch + env vars (لتفادي مشكلة undefined في بعض بيئات النشر)
-      const { data, error } = await supabase.functions.invoke("ai-chat", {
-        body: {
-          // Keep recent context only
-          messages: nextMessages.slice(-16),
-          subjectName: subject?.name,
-          stage: subject?.stage,
-          grade: subject?.grade,
-          section: subject?.section,
-        },
-      });
-
-      if (error) {
-        // حاول استخراج رسالة الخطأ الراجعة من الدالة
-        let msg = "فشل الاتصال بالمساعد الذكي";
-        try {
-          const ctx = (error as any)?.context;
-          if (ctx && typeof ctx.json === "function") {
-            const parsed = await ctx.json();
-            if (parsed?.error) msg = parsed.error;
-          } else if ((error as any)?.message) {
-            msg = (error as any).message;
-          }
-        } catch {
-          // ignore
-        }
-        throw new Error(msg);
-      }
-
-      const aiText = (data as any)?.response as string | undefined;
-      setChatMessages((prev) => [...prev, { role: "assistant", content: aiText || "عذراً، لم أتمكن من الرد." }]);
-    } catch (error) {
-      console.error("AI chat error:", error);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "عذراً، حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى. 🔄",
-        },
-      ]);
-      toast({
-        title: "خطأ",
-        description: error instanceof Error ? error.message : "فشل الاتصال بالمساعد",
-        variant: "destructive",
-      });
-    } finally {
-      setIsChatLoading(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -366,7 +286,14 @@ const SubjectPage = () => {
               <span className="hidden sm:inline">ملخصات وامتحانات</span>
               <span className="text-xs bg-muted px-1.5 rounded">{summaries.length + exams.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="ai" className="gap-2">
+            <TabsTrigger 
+              value="ai" 
+              className="gap-2"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/subject/${subjectId}/ai-chat`);
+              }}
+            >
               <Bot className="h-4 w-4" />
               <span className="hidden sm:inline">المساعد الذكي</span>
             </TabsTrigger>
@@ -575,7 +502,7 @@ const SubjectPage = () => {
 
                 {exams.length === 0 ? (
                   <Card className="p-6 text-center">
-                    <File className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+                    <FileText className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">لا توجد امتحانات</p>
                   </Card>
                 ) : (
@@ -585,7 +512,7 @@ const SubjectPage = () => {
                         <CardContent className="p-4 flex items-center justify-between gap-3">
                           <div className="flex items-center gap-4 min-w-0">
                             <div className="p-3 rounded-lg bg-accent">
-                              <File className="h-6 w-6 text-primary" />
+                              <FileText className="h-6 w-6 text-primary" />
                             </div>
                             <div className="min-w-0">
                               <h3 className="font-semibold text-foreground truncate">{ex.title}</h3>
@@ -626,64 +553,7 @@ const SubjectPage = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="ai">
-            <Card className="h-[600px] flex flex-col">
-              <CardHeader className="border-b">
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" />
-                  المساعد الذكي - {subject.name}
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-                {chatMessages.map((message, index) => (
-                  <div key={index} className={`flex ${message.role === "user" ? "justify-start" : "justify-end"}`}>
-                    <div
-                      className={`max-w-[80%] rounded-2xl p-4 ${
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground rounded-tr-none"
-                          : "bg-muted text-foreground rounded-tl-none"
-                      }`}
-                    >
-                      <p className="whitespace-pre-line text-sm leading-relaxed">{message.content}</p>
-                    </div>
-                  </div>
-                ))}
-
-                {isChatLoading && (
-                  <div className="flex justify-end">
-                    <div className="bg-muted rounded-2xl rounded-tl-none p-4">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-
-              <div className="border-t p-4">
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }}
-                  className="flex gap-2"
-                >
-                  <Input
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="اكتب سؤالك هنا..."
-                    className="flex-1"
-                    disabled={isChatLoading}
-                  />
-                  <Button type="submit" disabled={isChatLoading || !chatInput.trim()}>
-                    <Send className="h-5 w-5" />
-                  </Button>
-                </form>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  مدعوم بـ Gemini AI - اسأل أي سؤال عن المادة 🤖
-                </p>
-              </div>
-            </Card>
-          </TabsContent>
+          {/* AI Tab redirects to dedicated page */}
         </Tabs>
       </main>
 
