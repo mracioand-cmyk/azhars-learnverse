@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          subject_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -25,6 +26,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          subject_id?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -32,11 +34,20 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          subject_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_messages: {
         Row: {

@@ -233,6 +233,7 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Check admin role
   useEffect(() => {
@@ -281,8 +282,6 @@ const AdminDashboard = () => {
   if (!isAdmin) {
     return null;
   }
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-background flex" dir="rtl">
