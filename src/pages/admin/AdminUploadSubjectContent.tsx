@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, { ContentItem, ContentType, extractStoragePathFromPublicUrl } from "@/components/content/ContentUpsertDialog";
+import AdminAiChat from "@/components/admin/AdminAiChat";
 import {
   BookOpen,
   ChevronLeft,
@@ -95,86 +96,20 @@ const AdminUploadSubjectContent = () => {
   const summaries = useMemo(() => content.filter((c) => c.type === "summary"), [content]);
   const exams = useMemo(() => content.filter((c) => c.type === "exam"), [content]);
 
-  // AI Sources state
-  const [aiSources, setAiSources] = useState<{ id: string; file_name: string; file_url: string; created_at: string | null }[]>([]);
-  const [aiUploadLoading, setAiUploadLoading] = useState(false);
-
-  const fetchAiSources = async () => {
-    if (!subjectId) return;
-    const { data, error } = await supabase
-      .from("ai_sources")
-      .select("id, file_name, file_url, created_at")
-      .eq("subject_id", subjectId)
-      .order("created_at", { ascending: false });
-    if (!error && data) {
-      setAiSources(data);
-    }
-  };
+  // AI Sources count for tab badge
+  const [aiSourcesCount, setAiSourcesCount] = useState(0);
 
   useEffect(() => {
-    fetchAiSources();
+    const fetchAiSourcesCount = async () => {
+      if (!subjectId) return;
+      const { count } = await supabase
+        .from("ai_sources")
+        .select("id", { count: "exact", head: true })
+        .eq("subject_id", subjectId);
+      setAiSourcesCount(count || 0);
+    };
+    fetchAiSourcesCount();
   }, [subjectId]);
-
-  const handleAiSourceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !subjectId) return;
-
-    if (file.type !== "application/pdf") {
-      toast({ title: "خطأ", description: "يجب أن يكون الملف PDF", variant: "destructive" });
-      return;
-    }
-
-    setAiUploadLoading(true);
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-
-      const fileName = `${subjectId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("ai-sources").upload(fileName, file);
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from("ai-sources").getPublicUrl(fileName);
-
-      const { error: insertError } = await supabase.from("ai_sources").insert({
-        subject_id: subjectId,
-        file_name: file.name,
-        file_url: publicUrlData.publicUrl,
-        uploaded_by: userId,
-      });
-      if (insertError) throw insertError;
-
-      toast({ title: "تم", description: "تم رفع الملف بنجاح للمساعد الذكي" });
-      fetchAiSources();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "خطأ", description: "فشل رفع الملف", variant: "destructive" });
-    } finally {
-      setAiUploadLoading(false);
-      e.target.value = "";
-    }
-  };
-
-  const handleDeleteAiSource = async (source: { id: string; file_url: string }) => {
-    if (!confirm("هل أنت متأكد من حذف هذا الملف؟")) return;
-
-    try {
-      // Extract path from URL
-      const url = new URL(source.file_url);
-      const pathParts = url.pathname.split("/storage/v1/object/public/ai-sources/");
-      if (pathParts[1]) {
-        await supabase.storage.from("ai-sources").remove([decodeURIComponent(pathParts[1])]);
-      }
-
-      const { error } = await supabase.from("ai_sources").delete().eq("id", source.id);
-      if (error) throw error;
-
-      toast({ title: "تم", description: "تم حذف الملف" });
-      fetchAiSources();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "خطأ", description: "فشل حذف الملف", variant: "destructive" });
-    }
-  };
 
   const fetchAll = async () => {
     if (!subjectId) return;
@@ -362,7 +297,7 @@ const AdminUploadSubjectContent = () => {
             <TabsTrigger value="ai-assistant" className="gap-2">
               <Bot className="h-4 w-4" />
               <span className="hidden sm:inline">المساعد الذكي</span>
-              <span className="text-xs bg-muted px-1.5 rounded">{aiSources.length}</span>
+              <span className="text-xs bg-muted px-1.5 rounded">{aiSourcesCount}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -589,112 +524,15 @@ const AdminUploadSubjectContent = () => {
           </TabsContent>
 
           <TabsContent value="ai-assistant">
-            <div className="space-y-6">
-              {/* Description Card */}
-              <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-accent/10">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-3 rounded-xl bg-primary/10">
-                      <Sparkles className="h-8 w-8 text-primary" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-bold text-foreground">المساعد الذكي للمادة</h3>
-                      <p className="text-muted-foreground leading-relaxed">
-                        المساعد الذكي يستخدم الكتب والملفات التي ترفعها هنا لمساعدة الطلاب في فهم المادة. 
-                        يمكنه الإجابة على أسئلة الطلاب، شرح المفاهيم الصعبة، وتلخيص الدروس بناءً على محتوى الكتب المرفوعة.
-                      </p>
-                      <ul className="text-sm text-muted-foreground space-y-1 mt-3">
-                        <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                          يجيب على أسئلة الطلاب من محتوى الكتب
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                          يشرح المفاهيم الصعبة بطريقة مبسطة
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                          يساعد في حل التمارين والمسائل
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                          يلخص الدروس ويستخرج النقاط المهمة
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Upload Button */}
-              <div className="flex items-center gap-4">
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    className="hidden"
-                    onChange={handleAiSourceUpload}
-                    disabled={aiUploadLoading}
-                  />
-                  <Button asChild disabled={aiUploadLoading} className="gap-2">
-                    <span>
-                      {aiUploadLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                      ) : (
-                        <Plus className="h-5 w-5" />
-                      )}
-                      رفع كتاب PDF للمساعد الذكي
-                    </span>
-                  </Button>
-                </label>
-              </div>
-
-              {/* Sources List */}
-              {aiSources.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">لا توجد ملفات للمساعد الذكي</h3>
-                  <p className="text-muted-foreground">ارفع كتب PDF ليتمكن المساعد الذكي من مساعدة الطلاب</p>
-                </Card>
-              ) : (
-                <div className="grid gap-4">
-                  {aiSources.map((source) => (
-                    <Card key={source.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="p-3 rounded-lg bg-primary/10">
-                            <FileText className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <h3 className="font-semibold text-foreground truncate">{source.file_name}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {source.created_at ? new Date(source.created_at).toLocaleDateString("ar-SA") : ""}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="outline" size="sm" asChild className="gap-2">
-                            <a href={source.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                              تحميل
-                            </a>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleDeleteAiSource(source)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
+            {subject && (
+              <AdminAiChat
+                subjectId={subject.id}
+                subjectName={subject.name}
+                stage={subject.stage}
+                grade={subject.grade}
+                section={subject.section}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </main>

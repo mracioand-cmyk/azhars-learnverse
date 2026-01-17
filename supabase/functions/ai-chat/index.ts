@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-type ChatMsg = { role: "user" | "assistant"; content: string };
+type ChatMsg = { role: "user" | "assistant" | "system"; content: string };
 
 function stageLabel(stage?: string) {
   if (stage === "preparatory") return "المرحلة الإعدادية";
@@ -35,9 +36,11 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const messages = (body?.messages ?? []) as ChatMsg[];
     const subjectName = (body?.subjectName ?? "") as string;
+    const subjectId = (body?.subjectId ?? "") as string;
     const stage = body?.stage as string | undefined;
     const grade = body?.grade as string | undefined;
     const section = (body?.section ?? null) as string | null;
+    const isAdmin = (body?.isAdmin ?? false) as boolean;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: "الرسائل غير صالحة" }), {
@@ -49,6 +52,39 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    // Create Supabase client to fetch admin instructions and AI sources
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    
+    let adminInstructions: string[] = [];
+    let aiSourcesInfo = "";
+    
+    if (subjectId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      
+      // Fetch admin instructions for this subject
+      const { data: instructions } = await supabase
+        .from("ai_admin_instructions")
+        .select("instruction")
+        .eq("subject_id", subjectId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true });
+      
+      if (instructions && instructions.length > 0) {
+        adminInstructions = instructions.map((i: any) => i.instruction);
+      }
+      
+      // Fetch AI sources info
+      const { data: sources } = await supabase
+        .from("ai_sources")
+        .select("file_name")
+        .eq("subject_id", subjectId);
+      
+      if (sources && sources.length > 0) {
+        aiSourcesInfo = `\n\nالكتب المرفوعة للمادة:\n${sources.map((s: any) => `- ${s.file_name}`).join("\n")}`;
+      }
+    }
+
     const metaParts: string[] = [];
     if (subjectName) metaParts.push(`المادة: ${subjectName}`);
     const s = stageLabel(stage);
@@ -58,16 +94,57 @@ serve(async (req) => {
     if (g) metaParts.push(`الصف: ${g}`);
     if (sec) metaParts.push(`الشعبة: ${sec}`);
 
-    const systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية.
+    // Build admin instructions section
+    let adminInstructionsSection = "";
+    if (adminInstructions.length > 0) {
+      adminInstructionsSection = `\n\nتعليمات خاصة من المطور (يجب اتباعها دائماً):\n${adminInstructions.map((inst, i) => `${i + 1}. ${inst}`).join("\n")}`;
+    }
+
+    // Different prompts for admin vs student
+    let systemPrompt: string;
+    
+    if (isAdmin) {
+      systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية - وضع المطور/الأدمن.
 ${metaParts.length ? metaParts.join("\n") : ""}
+${aiSourcesInfo}
+${adminInstructionsSection}
+
+أنت الآن تتحدث مع المطور/الأدمن وليس طالباً.
+
+قدراتك مع المطور:
+1. يمكن للمطور إعطائك تعليمات وأوامر لتتبعها مع الطلاب
+2. يمكنه تحديد إجابات معينة لأسئلة معينة
+3. يمكنه إخبارك بمعلومات إضافية لتستخدمها
+4. يمكنك مساعدته في إدارة المحتوى والإجابة على استفساراته
+
+عندما يعطيك المطور تعليمات مثل:
+- "عندما يسألك طالب عن X أجب Y" 
+- "استخدم هذه المعلومة: ..."
+- "لا تجب على أسئلة عن ..."
+
+أخبره أنك فهمت التعليمات وستتبعها. (ملاحظة: التعليمات يتم حفظها تلقائياً في النظام)
+
+قواعد:
+- تحدث بأسلوب احترافي مع المطور
+- ساعده في أي استفسار عن المنصة أو المحتوى
+- أجب باللغة العربية الفصحى
+`;
+    } else {
+      systemPrompt = `أنت مساعد ذكي لمنصة "أزهاريون" التعليمية.
+${metaParts.length ? metaParts.join("\n") : ""}
+${aiSourcesInfo}
+${adminInstructionsSection}
 
 قواعد مهمة:
-- أجب باللغة العربية الفصحى وبأسلوب واضح.
-- يمكنك الإجابة عن أي سؤال عام (ليس شرطاً أن يكون داخل المادة).
+- أجب باللغة العربية الفصحى وبأسلوب واضح ومبسط للطلاب.
+- إذا كان هناك كتب مرفوعة للمادة، استخدم معلوماتها أولاً للإجابة.
+- يمكنك الإجابة عن أي سؤال عام.
 - إذا كان السؤال مرتبطاً بالمادة/المرحلة/الصف، اجعل الشرح مناسباً لهذا السياق.
+- اتبع تعليمات المطور الخاصة إن وجدت.
 - لا تختلق معلومات؛ إذا لم تكن متأكداً قل: لا أعلم.
-- ملاحظة: لا تذكر أنك "تتصفح الإنترنت" أو لديك وصول مباشر للأخبار اللحظية.
+- شجع الطالب على التعلم والسؤال.
 `;
+    }
 
     const callGateway = async (model: string) => {
       const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -93,14 +170,12 @@ ${metaParts.length ? metaParts.join("\n") : ""}
       return { ok: true as const, content, data };
     };
 
-    // نحاول أولاً Gemini (الأسرع) ثم نعيد المحاولة بنموذج بديل إذا خرج رد فارغ.
-    const modelsToTry = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"]; // fallback
+    const modelsToTry = ["google/gemini-3-flash-preview", "openai/gpt-5-mini"];
 
     for (const model of modelsToTry) {
       const result = await callGateway(model);
 
       if (!result.ok) {
-        // أخطاء الدفع/الحدود لا معنى لإعادة المحاولة معها
         if (result.status === 429) {
           return new Response(JSON.stringify({ error: "المساعد مشغول الآن. حاول بعد دقيقة." }), {
             status: 429,
@@ -119,7 +194,6 @@ ${metaParts.length ? metaParts.join("\n") : ""}
         }
 
         console.error("AI gateway error:", result.status, result.text);
-        // نجرب النموذج التالي في حال كان الخطأ مؤقتاً
         continue;
       }
 
@@ -130,7 +204,6 @@ ${metaParts.length ? metaParts.join("\n") : ""}
         });
       }
 
-      // رد فارغ: نجرب نموذج بديل
       console.warn("AI gateway returned empty content for model:", model, result.data);
     }
 

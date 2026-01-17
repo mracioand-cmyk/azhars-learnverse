@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_admin_instructions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          instruction: string
+          is_active: boolean | null
+          subject_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instruction: string
+          is_active?: boolean | null
+          subject_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instruction?: string
+          is_active?: boolean | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_admin_instructions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversations: {
         Row: {
           created_at: string
