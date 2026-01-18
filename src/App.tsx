@@ -31,6 +31,7 @@ import AdminSubjectContent from "./pages/admin/AdminSubjectContent";
 import AdminUploadBrowser from "./pages/admin/AdminUploadBrowser";
 import AdminUploadSubjects from "./pages/admin/AdminUploadSubjects";
 import AdminUploadSubjectContent from "./pages/admin/AdminUploadSubjectContent";
+import AdminSubscriptionsPage from "./pages/admin/SubscriptionsPage";
 
 // Student Pages
 import StudentSupportPage from "./pages/student/SupportPage";
@@ -219,6 +220,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminUploadSubjectContent />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/subscriptions"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminSubscriptionsPage />
                 </ProtectedRoute>
               }
             />

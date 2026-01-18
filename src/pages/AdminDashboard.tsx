@@ -84,6 +84,7 @@ import {
   UserCog,
   Lock,
   Info,
+  CreditCard,
 } from "lucide-react";
 
 // Types
@@ -217,6 +218,7 @@ const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
+  { id: "subscriptions", label: "الاشتراكات", icon: CreditCard },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },
@@ -393,6 +395,15 @@ const AdminDashboard = () => {
         {activeTab === "overview" && <OverviewTab />}
         {activeTab === "students" && <StudentsTab />}
         {activeTab === "teachers" && <TeachersTab />}
+        {activeTab === "subscriptions" && (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold">الاشتراكات</h2>
+            <Button onClick={() => navigate("/admin/subscriptions")} className="gap-2">
+              <CreditCard className="h-5 w-5" />
+              إدارة الاشتراكات
+            </Button>
+          </div>
+        )}
         {activeTab === "content" && <ContentTab />}
         {activeTab === "subjects" && <SubjectsTab />}
         {activeTab === "notifications" && <NotificationsTab />}

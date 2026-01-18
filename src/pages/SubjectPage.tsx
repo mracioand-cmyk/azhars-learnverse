@@ -5,8 +5,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, { ContentItem, ContentType, extractStoragePathFromPublicUrl } from "@/components/content/ContentUpsertDialog";
+import PaywallDialog from "@/components/subscription/PaywallDialog";
 import {
   BookOpen,
   ChevronLeft,
@@ -25,6 +27,7 @@ import {
   Trash2,
   Edit,
   Eye,
+  Lock,
 } from "lucide-react";
 
 type SubjectRow = {
@@ -69,16 +72,20 @@ const SubjectPage = () => {
   const { user, role, signOut } = useAuth();
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
+  const { hasActiveSubscription } = useSubscription(subjectId);
 
   const [subject, setSubject] = useState<SubjectRow | null>(null);
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<ContentType>("video");
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
+
+  const isSubscribed = hasActiveSubscription(subjectId);
 
 
   const backTo = useMemo(() => {
@@ -330,11 +337,21 @@ const SubjectPage = () => {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="outline" size="sm" asChild className="gap-2">
-                            <a href={book.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                              تحميل
-                            </a>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={(e) => {
+                              if (!isSubscribed) {
+                                e.preventDefault();
+                                setShowPaywall(true);
+                              } else {
+                                window.open(book.file_url, "_blank");
+                              }
+                            }}
+                          >
+                            {isSubscribed ? <Download className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                            {isSubscribed ? "تحميل" : "مدفوع"}
                           </Button>
 
                           {isAdmin && (
@@ -394,11 +411,21 @@ const SubjectPage = () => {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <Button variant="outline" size="sm" asChild className="gap-2">
-                            <a href={video.file_url} target="_blank" rel="noopener noreferrer">
-                              <Eye className="h-4 w-4" />
-                              مشاهدة
-                            </a>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={(e) => {
+                              if (!isSubscribed) {
+                                e.preventDefault();
+                                setShowPaywall(true);
+                              } else {
+                                window.open(video.file_url, "_blank");
+                              }
+                            }}
+                          >
+                            {isSubscribed ? <Eye className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                            {isSubscribed ? "مشاهدة" : "مدفوع"}
                           </Button>
 
                           {isAdmin && (
