@@ -486,11 +486,21 @@ const SubjectPage = () => {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <Button variant="outline" size="sm" asChild className="gap-2">
-                              <a href={s.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4" />
-                                تحميل
-                              </a>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2"
+                              onClick={(e) => {
+                                if (!isSubscribed) {
+                                  e.preventDefault();
+                                  setShowPaywall(true);
+                                } else {
+                                  window.open(s.file_url, "_blank");
+                                }
+                              }}
+                            >
+                              {isSubscribed ? <Download className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                              {isSubscribed ? "تحميل" : "مدفوع"}
                             </Button>
 
                             {isAdmin && (
@@ -548,11 +558,21 @@ const SubjectPage = () => {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <Button variant="outline" size="sm" asChild className="gap-2">
-                              <a href={ex.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4" />
-                                تحميل
-                              </a>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2"
+                              onClick={(e) => {
+                                if (!isSubscribed) {
+                                  e.preventDefault();
+                                  setShowPaywall(true);
+                                } else {
+                                  window.open(ex.file_url, "_blank");
+                                }
+                              }}
+                            >
+                              {isSubscribed ? <Download className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                              {isSubscribed ? "تحميل" : "مدفوع"}
                             </Button>
 
                             {isAdmin && (
@@ -604,6 +624,19 @@ const SubjectPage = () => {
           subjectId={subjectId}
           item={editItem}
           onSuccess={fetchAll}
+        />
+      )}
+
+      {/* Paywall Dialog */}
+      {subject && user && (
+        <PaywallDialog
+          open={showPaywall}
+          onOpenChange={setShowPaywall}
+          subjectName={subject.name}
+          grade={subject.grade}
+          stage={subject.stage}
+          section={subject.section}
+          studentId={user.id}
         />
       )}
     </div>
