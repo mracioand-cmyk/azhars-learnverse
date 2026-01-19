@@ -51,6 +51,8 @@ import {
 import {
   BarChart3,
   Users,
+  Clock,
+  TrendingUp,
   GraduationCap,
   Upload,
   BookOpen,
@@ -418,6 +420,7 @@ const AdminDashboard = () => {
 // OVERVIEW TAB
 // ============================================
 const OverviewTab = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -426,7 +429,14 @@ const OverviewTab = () => {
     totalVideos: 0,
     totalPdfs: 0,
     unreadSupport: 0,
+    // Subscription stats
+    totalActiveSubscriptions: 0,
+    totalSubscribedStudents: 0,
+    expiringSoon: 0,
+    expiredRecently: 0,
+    expectedRevenue: 0,
   });
+  const [subscriptionPrice, setSubscriptionPrice] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -473,6 +483,46 @@ const OverviewTab = () => {
           .eq("is_from_admin", false)
           .eq("is_read", false);
 
+        // Get subscription stats
+        const now = new Date();
+        const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        // Active subscriptions
+        const { data: activeSubscriptions } = await supabase
+          .from("subscriptions")
+          .select("student_id, end_date")
+          .eq("is_active", true)
+          .gt("end_date", now.toISOString());
+
+        const totalActiveSubscriptions = activeSubscriptions?.length || 0;
+        const uniqueStudents = new Set(activeSubscriptions?.map(s => s.student_id) || []);
+        const totalSubscribedStudents = uniqueStudents.size;
+
+        // Expiring soon (within 7 days)
+        const expiringSoon = activeSubscriptions?.filter(s => {
+          const endDate = new Date(s.end_date);
+          return endDate <= sevenDaysFromNow && endDate > now;
+        }).length || 0;
+
+        // Expired recently (last 7 days)
+        const { count: expiredCount } = await supabase
+          .from("subscriptions")
+          .select("*", { count: "exact", head: true })
+          .lt("end_date", now.toISOString())
+          .gt("end_date", sevenDaysAgo.toISOString());
+
+        // Get subscription price for revenue calculation
+        const { data: priceData } = await supabase
+          .from("platform_settings")
+          .select("value")
+          .eq("key", "subscription_default_price")
+          .single();
+
+        const price = parseFloat(priceData?.value || "100");
+        setSubscriptionPrice(price);
+        const expectedRevenue = totalActiveSubscriptions * price;
+
         setStats({
           totalStudents: studentsCount || 0,
           totalTeachers: teachersCount || 0,
@@ -481,6 +531,11 @@ const OverviewTab = () => {
           totalVideos: videosCount || 0,
           totalPdfs: pdfsCount || 0,
           unreadSupport: unreadCount || 0,
+          totalActiveSubscriptions,
+          totalSubscribedStudents,
+          expiringSoon,
+          expiredRecently: expiredCount || 0,
+          expectedRevenue,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -503,6 +558,37 @@ const OverviewTab = () => {
     { title: "رسائل الدعم غير المقروءة", value: stats.unreadSupport, icon: MessageSquare, color: "text-pink-500" },
   ];
 
+  const subscriptionCards = [
+    { 
+      title: "الاشتراكات النشطة", 
+      value: stats.totalActiveSubscriptions, 
+      icon: CreditCard, 
+      color: "bg-emerald-500",
+      description: "إجمالي الاشتراكات الفعالة"
+    },
+    { 
+      title: "الطلاب المشتركين", 
+      value: stats.totalSubscribedStudents, 
+      icon: Users, 
+      color: "bg-blue-500",
+      description: "عدد الطلاب الذين لديهم اشتراك نشط"
+    },
+    { 
+      title: "تنتهي قريباً", 
+      value: stats.expiringSoon, 
+      icon: Clock,
+      color: "bg-amber-500",
+      description: "اشتراكات تنتهي خلال 7 أيام"
+    },
+    { 
+      title: "انتهت مؤخراً", 
+      value: stats.expiredRecently, 
+      icon: AlertTriangle, 
+      color: "bg-red-500",
+      description: "اشتراكات انتهت خلال 7 أيام"
+    },
+  ];
+
   if (loading) {
     return (
       <div className="space-y-4 lg:space-y-6 w-full max-w-full">
@@ -517,11 +603,13 @@ const OverviewTab = () => {
   }
 
   return (
-    <div className="space-y-4 lg:space-y-6 w-full max-w-full">
+    <div className="space-y-6 lg:space-y-8 w-full max-w-full">
       <h2 className="text-xl lg:text-2xl font-bold flex items-center gap-2">
         <BarChart3 className="h-5 w-5 lg:h-6 lg:w-6 flex-shrink-0" />
         <span className="truncate">نظرة عامة</span>
       </h2>
+
+      {/* General Stats */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 lg:gap-4">
         {statCards.map((stat, index) => (
           <Card key={index} className="overflow-hidden">
@@ -536,6 +624,64 @@ const OverviewTab = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Subscription Stats Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg lg:text-xl font-bold flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            إحصائيات الاشتراكات
+          </h3>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate("/admin/subscriptions")}
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            إدارة الاشتراكات
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+          {subscriptionCards.map((card, index) => (
+            <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <CardContent className="p-4 lg:p-6">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs lg:text-sm text-muted-foreground truncate">{card.title}</p>
+                    <p className="text-2xl lg:text-4xl font-bold mt-2">{card.value}</p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate hidden lg:block">{card.description}</p>
+                  </div>
+                  <div className={cn("p-2 lg:p-3 rounded-xl", card.color)}>
+                    <card.icon className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Revenue Card */}
+        <Card className="bg-gradient-to-br from-primary/10 to-gold/10 border-primary/20">
+          <CardContent className="p-4 lg:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">الإيرادات المتوقعة</p>
+                <p className="text-3xl lg:text-4xl font-bold text-primary mt-2">
+                  {stats.expectedRevenue.toLocaleString("ar-EG")} جنيه
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  بناءً على {stats.totalActiveSubscriptions} اشتراك نشط × {subscriptionPrice} جنيه
+                </p>
+              </div>
+              <div className="p-4 rounded-2xl bg-primary/20">
+                <TrendingUp className="h-8 w-8 lg:h-10 lg:w-10 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
