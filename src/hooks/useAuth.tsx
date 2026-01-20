@@ -33,6 +33,10 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
+  assignedStages?: string[];
+  assignedGrades?: string[];
+  assignedSections?: string[];
+  assignedCategory?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -215,6 +219,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             school_name: data.schoolName,
             employee_id: data.employeeId,
             role: "teacher",
+            assigned_stages: JSON.stringify(data.assignedStages || []),
+            assigned_grades: JSON.stringify(data.assignedGrades || []),
+            assigned_sections: JSON.stringify(data.assignedSections || []),
+            assigned_category: data.assignedCategory,
           },
         },
       });

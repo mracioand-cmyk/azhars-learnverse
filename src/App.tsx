@@ -33,6 +33,10 @@ import AdminUploadSubjects from "./pages/admin/AdminUploadSubjects";
 import AdminUploadSubjectContent from "./pages/admin/AdminUploadSubjectContent";
 import AdminSubscriptionsPage from "./pages/admin/SubscriptionsPage";
 
+// Teacher Pages
+import TeacherDashboard from "./pages/TeacherDashboard";
+import TeacherUploadContent from "./pages/teacher/TeacherUploadContent";
+
 // Student Pages
 import StudentSupportPage from "./pages/student/SupportPage";
 import StudentAboutPage from "./pages/student/AboutPage";
@@ -228,6 +232,24 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminSubscriptionsPage />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Protected routes - Teacher */}
+            <Route
+              path="/teacher"
+              element={
+                <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+                  <TeacherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher/upload"
+              element={
+                <ProtectedRoute allowedRoles={["teacher", "admin"]}>
+                  <TeacherUploadContent />
                 </ProtectedRoute>
               }
             />
