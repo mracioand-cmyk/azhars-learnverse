@@ -461,8 +461,45 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_assignments: {
+        Row: {
+          category: string
+          created_at: string | null
+          grade: string
+          id: string
+          section: string | null
+          stage: string
+          teacher_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          grade: string
+          id?: string
+          section?: string | null
+          stage: string
+          teacher_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          grade?: string
+          id?: string
+          section?: string | null
+          stage?: string
+          teacher_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       teacher_requests: {
         Row: {
+          assigned_category: string | null
+          assigned_grades: string[] | null
+          assigned_sections: string[] | null
+          assigned_stages: string[] | null
           created_at: string | null
           email: string
           employee_id: string | null
@@ -479,6 +516,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          assigned_category?: string | null
+          assigned_grades?: string[] | null
+          assigned_sections?: string[] | null
+          assigned_stages?: string[] | null
           created_at?: string | null
           email: string
           employee_id?: string | null
@@ -495,6 +536,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          assigned_category?: string | null
+          assigned_grades?: string[] | null
+          assigned_sections?: string[] | null
+          assigned_stages?: string[] | null
           created_at?: string | null
           email?: string
           employee_id?: string | null

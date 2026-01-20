@@ -75,7 +75,7 @@ const ProtectedRoute = ({
       } else if (role === "student") {
         return <Navigate to="/dashboard" replace />;
       } else if (role === "teacher") {
-        return <Navigate to="/pending-approval" replace />;
+        return <Navigate to="/teacher" replace />;
       }
       return <Navigate to="/" replace />;
     }
