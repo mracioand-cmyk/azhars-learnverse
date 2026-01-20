@@ -9,14 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -50,6 +43,9 @@ import {
   GraduationCap,
   Settings,
   User,
+  MessageSquare,
+  Edit,
+  Save,
 } from "lucide-react";
 
 // Types
@@ -69,6 +65,7 @@ interface Subject {
   stage: string;
   grade: string;
   section: string | null;
+  category: string;
 }
 
 interface Subscription {
@@ -83,6 +80,68 @@ interface Subscription {
   profiles?: Student;
 }
 
+interface SubscriptionMessage {
+  id: string;
+  stage: string;
+  grade: string;
+  section: string | null;
+  category: string;
+  welcome_message: string;
+  price: string;
+  includes_description: string | null;
+}
+
+// Constants - Main categories for subscriptions (grouped subjects)
+const MAIN_CATEGORIES = [
+  { id: "arabic", name: "المواد العربية", includes: "نحو + بلاغة + أدب + نصوص + صرف + مطالعة + إنشاء" },
+  { id: "sharia", name: "المواد الشرعية", includes: "فقه + توحيد + تفسير + حديث" },
+  { id: "math", name: "الرياضيات", includes: "" },
+  { id: "scientific", name: "المواد العلمية", includes: "فيزياء + كيمياء + أحياء" },
+  { id: "literary", name: "المواد الأدبية", includes: "تاريخ + جغرافيا + فلسفة ومنطق" },
+  { id: "english", name: "اللغة الإنجليزية", includes: "" },
+  { id: "french", name: "اللغة الفرنسية", includes: "" },
+  { id: "science", name: "العلوم", includes: "" },
+  { id: "social", name: "الدراسات", includes: "" },
+];
+
+const getCategoriesForStudent = (stage: string | null, section: string | null) => {
+  if (stage === "preparatory") {
+    return MAIN_CATEGORIES.filter(c => 
+      ["arabic", "sharia", "math", "science", "social", "english"].includes(c.id)
+    );
+  }
+  if (stage === "secondary" && section === "scientific") {
+    return MAIN_CATEGORIES.filter(c => 
+      ["arabic", "sharia", "math", "scientific", "english"].includes(c.id)
+    );
+  }
+  if (stage === "secondary" && section === "literary") {
+    return MAIN_CATEGORIES.filter(c => 
+      ["arabic", "sharia", "literary", "english", "french"].includes(c.id)
+    );
+  }
+  return MAIN_CATEGORIES;
+};
+
+const formatStage = (stage: string | null) => {
+  if (stage === "preparatory") return "إعدادي";
+  if (stage === "secondary") return "ثانوي";
+  return stage || "";
+};
+
+const formatGrade = (grade: string | null) => {
+  if (grade === "first") return "الأول";
+  if (grade === "second") return "الثاني";
+  if (grade === "third") return "الثالث";
+  return grade || "";
+};
+
+const formatSection = (section: string | null) => {
+  if (section === "scientific") return "علمي";
+  if (section === "literary") return "أدبي";
+  return section || "";
+};
+
 const SubscriptionsPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -93,13 +152,14 @@ const SubscriptionsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [studentSubjects, setStudentSubjects] = useState<Subject[]>([]);
+  const [studentCategories, setStudentCategories] = useState<typeof MAIN_CATEGORIES>([]);
   const [studentSubscriptions, setStudentSubscriptions] = useState<Subscription[]>([]);
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [duration, setDuration] = useState<string>("30");
   const [customEndDate, setCustomEndDate] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
 
   // View Subscriptions State
   const [stageFilter, setStageFilter] = useState<string>("all");
@@ -124,6 +184,31 @@ const SubscriptionsPage = () => {
     message: "",
   });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // Subscription Messages State
+  const [msgStage, setMsgStage] = useState<string>("secondary");
+  const [msgGrade, setMsgGrade] = useState<string>("first");
+  const [msgSection, setMsgSection] = useState<string>("");
+  const [msgCategory, setMsgCategory] = useState<string>("arabic");
+  const [subscriptionMessages, setSubscriptionMessages] = useState<SubscriptionMessage[]>([]);
+  const [currentMessage, setCurrentMessage] = useState({
+    welcome_message: "",
+    price: "",
+    includes_description: "",
+  });
+  const [isSavingMessage, setIsSavingMessage] = useState(false);
+
+  // Load all subjects once
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      const { data } = await supabase
+        .from("subjects")
+        .select("id, name, stage, grade, section, category")
+        .eq("is_active", true);
+      setAllSubjects(data || []);
+    };
+    fetchSubjects();
+  }, []);
 
   // Load initial data
   useEffect(() => {
@@ -150,11 +235,42 @@ const SubscriptionsPage = () => {
           message: settingsMap.subscription_default_message || "",
         });
       }
+
+      // Load subscription messages
+      const { data: messages } = await supabase
+        .from("subscription_messages")
+        .select("*");
+      setSubscriptionMessages((messages as SubscriptionMessage[]) || []);
+
       setLoading(false);
     };
 
     fetchSettings();
   }, []);
+
+  // Load message when filters change
+  useEffect(() => {
+    const existing = subscriptionMessages.find(
+      m => m.stage === msgStage && 
+           m.grade === msgGrade && 
+           (msgSection ? m.section === msgSection : !m.section) && 
+           m.category === msgCategory
+    );
+    if (existing) {
+      setCurrentMessage({
+        welcome_message: existing.welcome_message,
+        price: existing.price,
+        includes_description: existing.includes_description || "",
+      });
+    } else {
+      const cat = MAIN_CATEGORIES.find(c => c.id === msgCategory);
+      setCurrentMessage({
+        welcome_message: `مرحباً بك في ${cat?.name || "المادة"}!\nاشترك الآن للوصول لجميع المحتوى.`,
+        price: settings.price || "100",
+        includes_description: cat?.includes || "",
+      });
+    }
+  }, [msgStage, msgGrade, msgSection, msgCategory, subscriptionMessages, settings.price]);
 
   // Search students
   const searchStudents = useCallback(async () => {
@@ -181,59 +297,87 @@ const SubscriptionsPage = () => {
     }
   }, [searchQuery]);
 
-  // Select student for subscription management
+  // Select student for subscription management - FILTERED by student's stage/grade/section
   const selectStudent = async (student: Student) => {
     setSelectedStudent(student);
     setSearchResults([]);
     setSearchQuery("");
-    setSelectedSubjects([]);
+    setSelectedCategories([]);
 
-    // Fetch subjects for student's grade
-    const { data: subjects } = await supabase
-      .from("subjects")
-      .select("id, name, stage, grade, section")
-      .eq("is_active", true)
-      .order("name");
+    // Get categories available for this student
+    const categories = getCategoriesForStudent(student.stage, student.section);
+    setStudentCategories(categories);
 
-    setStudentSubjects(subjects || []);
-
-    // Fetch existing subscriptions
+    // Fetch existing subscriptions for this student
     const { data: subs } = await supabase
       .from("subscriptions")
-      .select("*")
+      .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
       .eq("student_id", student.id);
 
     setStudentSubscriptions(subs || []);
   };
 
-  // Check if student has active subscription for subject
-  const hasActiveSubscription = (subjectId: string) => {
-    const sub = studentSubscriptions.find((s) => s.subject_id === subjectId);
-    if (!sub) return false;
-    return sub.is_active && new Date(sub.end_date) > new Date();
+  // Check if student has active subscription for a category
+  const hasActiveCategorySubscription = (category: string) => {
+    if (!selectedStudent) return false;
+    
+    // Get all subjects for this category that match student's stage/grade/section
+    const categorySubjects = allSubjects.filter(s => 
+      s.category === category &&
+      s.stage === selectedStudent.stage &&
+      s.grade === selectedStudent.grade &&
+      (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
+    );
+    
+    if (categorySubjects.length === 0) return false;
+    
+    // Check if ALL subjects in this category have active subscriptions
+    const now = new Date();
+    return categorySubjects.every(subject => {
+      const sub = studentSubscriptions.find(s => s.subject_id === subject.id);
+      return sub && sub.is_active && new Date(sub.end_date) > now;
+    });
   };
 
-  // Get subscription end date for subject
-  const getSubscriptionEndDate = (subjectId: string) => {
-    const sub = studentSubscriptions.find((s) => s.subject_id === subjectId);
-    if (!sub || !sub.is_active) return null;
-    const endDate = new Date(sub.end_date);
-    if (endDate <= new Date()) return null;
-    return endDate;
+  // Get subscription end date for category (returns earliest end date)
+  const getCategorySubscriptionEndDate = (category: string): Date | null => {
+    if (!selectedStudent) return null;
+    
+    const categorySubjects = allSubjects.filter(s => 
+      s.category === category &&
+      s.stage === selectedStudent.stage &&
+      s.grade === selectedStudent.grade &&
+      (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
+    );
+    
+    const now = new Date();
+    let earliestEnd: Date | null = null;
+    
+    for (const subject of categorySubjects) {
+      const sub = studentSubscriptions.find(s => s.subject_id === subject.id);
+      if (sub && sub.is_active) {
+        const endDate = new Date(sub.end_date);
+        if (endDate > now && (!earliestEnd || endDate < earliestEnd)) {
+          earliestEnd = endDate;
+        }
+      }
+    }
+    
+    return earliestEnd;
   };
 
-  // Toggle subject selection
-  const toggleSubject = (subjectId: string) => {
-    setSelectedSubjects((prev) =>
-      prev.includes(subjectId)
-        ? prev.filter((id) => id !== subjectId)
-        : [...prev, subjectId]
+  // Toggle category selection
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId]
     );
   };
 
-  // Save subscriptions
+  // Save subscriptions - Subscribe to ALL subjects in selected categories
   const saveSubscriptions = async () => {
-    if (!selectedStudent || selectedSubjects.length === 0) {
+    if (!selectedStudent || selectedCategories.length === 0) {
       toast.error("يرجى اختيار مادة واحدة على الأقل");
       return;
     }
@@ -245,9 +389,17 @@ const SubscriptionsPage = () => {
           ? new Date(customEndDate)
           : new Date(Date.now() + parseInt(duration) * 24 * 60 * 60 * 1000);
 
-      for (const subjectId of selectedSubjects) {
+      // Get all subjects that match student's profile and selected categories
+      const subjectsToSubscribe = allSubjects.filter(s => 
+        selectedCategories.includes(s.category) &&
+        s.stage === selectedStudent.stage &&
+        s.grade === selectedStudent.grade &&
+        (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
+      );
+
+      for (const subject of subjectsToSubscribe) {
         const existingSub = studentSubscriptions.find(
-          (s) => s.subject_id === subjectId
+          (s) => s.subject_id === subject.id
         );
 
         if (existingSub) {
@@ -257,14 +409,14 @@ const SubscriptionsPage = () => {
             .update({
               end_date: endDate.toISOString(),
               is_active: true,
-              renewal_count: existingSub.renewal_count + 1,
+              renewal_count: (existingSub.renewal_count || 0) + 1,
             })
             .eq("id", existingSub.id);
         } else {
           // Create new subscription
           await supabase.from("subscriptions").insert({
             student_id: selectedStudent.id,
-            subject_id: subjectId,
+            subject_id: subject.id,
             start_date: new Date().toISOString(),
             end_date: endDate.toISOString(),
             is_active: true,
@@ -273,13 +425,13 @@ const SubscriptionsPage = () => {
         }
       }
 
-      toast.success("تم تفعيل الاشتراكات بنجاح");
-      setSelectedSubjects([]);
+      toast.success(`تم تفعيل الاشتراك في ${selectedCategories.length} مادة (${subjectsToSubscribe.length} مادة فرعية)`);
+      setSelectedCategories([]);
       
       // Refresh subscriptions
       const { data: subs } = await supabase
         .from("subscriptions")
-        .select("*")
+        .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
         .eq("student_id", selectedStudent.id);
       setStudentSubscriptions(subs || []);
     } catch (error) {
@@ -290,23 +442,34 @@ const SubscriptionsPage = () => {
     }
   };
 
-  // Deactivate subscription
-  const deactivateSubscription = async (subscriptionId: string) => {
+  // Deactivate subscription for a category
+  const deactivateCategorySubscription = async (category: string) => {
+    if (!selectedStudent) return;
+    
     try {
+      const categorySubjects = allSubjects.filter(s => 
+        s.category === category &&
+        s.stage === selectedStudent.stage &&
+        s.grade === selectedStudent.grade &&
+        (selectedStudent.section ? s.section === selectedStudent.section : !s.section)
+      );
+      
+      const subjectIds = categorySubjects.map(s => s.id);
+      
       await supabase
         .from("subscriptions")
         .update({ is_active: false })
-        .eq("id", subscriptionId);
+        .eq("student_id", selectedStudent.id)
+        .in("subject_id", subjectIds);
 
       toast.success("تم إلغاء الاشتراك");
 
-      if (selectedStudent) {
-        const { data: subs } = await supabase
-          .from("subscriptions")
-          .select("*")
-          .eq("student_id", selectedStudent.id);
-        setStudentSubscriptions(subs || []);
-      }
+      // Refresh
+      const { data: subs } = await supabase
+        .from("subscriptions")
+        .select("*, subjects:subject_id(id, name, stage, grade, section, category)")
+        .eq("student_id", selectedStudent.id);
+      setStudentSubscriptions(subs || []);
     } catch (error) {
       console.error("Error deactivating subscription:", error);
       toast.error("خطأ في إلغاء الاشتراك");
@@ -317,8 +480,7 @@ const SubscriptionsPage = () => {
   const fetchSubscriptionsByFilters = useCallback(async () => {
     setLoadingSubscriptions(true);
     try {
-      // First get subjects based on filters
-      let subjectsQuery = supabase.from("subjects").select("id, name, stage, grade, section");
+      let subjectsQuery = supabase.from("subjects").select("id, name, stage, grade, section, category");
       
       if (stageFilter !== "all") {
         subjectsQuery = subjectsQuery.eq("stage", stageFilter);
@@ -339,23 +501,19 @@ const SubscriptionsPage = () => {
         return;
       }
 
-      // Get subscriptions for these subjects
       const { data: subs } = await supabase
         .from("subscriptions")
         .select("*")
         .in("subject_id", subjectIds)
         .eq("is_active", true);
 
-      // Get unique student IDs
       const studentIds = [...new Set(subs?.map((s) => s.student_id) || [])];
 
-      // Fetch student profiles
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, full_name, email, student_code, stage, grade, section")
         .in("id", studentIds);
 
-      // Combine data
       const enrichedSubs = subs?.map((sub) => ({
         ...sub,
         subjects: subjects?.find((s) => s.id === sub.subject_id),
@@ -397,17 +555,15 @@ const SubscriptionsPage = () => {
 
       const student = students[0];
 
-      // Fetch subscriptions with subject details
       const { data: subs } = await supabase
         .from("subscriptions")
         .select("*")
         .eq("student_id", student.id);
 
-      // Fetch subject details
       const subjectIds = subs?.map((s) => s.subject_id) || [];
       const { data: subjects } = await supabase
         .from("subjects")
-        .select("id, name, stage, grade, section")
+        .select("id, name, stage, grade, section, category")
         .in("id", subjectIds);
 
       const enrichedSubs = subs?.map((sub) => ({
@@ -438,8 +594,7 @@ const SubscriptionsPage = () => {
       for (const update of updates) {
         await supabase
           .from("platform_settings")
-          .update({ value: update.value })
-          .eq("key", update.key);
+          .upsert({ key: update.key, value: update.value }, { onConflict: "key" });
       }
 
       toast.success("تم حفظ الإعدادات");
@@ -448,6 +603,52 @@ const SubscriptionsPage = () => {
       toast.error("خطأ في حفظ الإعدادات");
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  // Save subscription message
+  const saveSubscriptionMessage = async () => {
+    setIsSavingMessage(true);
+    try {
+      const messageData = {
+        stage: msgStage,
+        grade: msgGrade,
+        section: msgSection || null,
+        category: msgCategory,
+        welcome_message: currentMessage.welcome_message,
+        price: currentMessage.price,
+        includes_description: currentMessage.includes_description || null,
+        created_by: user?.id,
+      };
+
+      const existing = subscriptionMessages.find(
+        m => m.stage === msgStage && 
+             m.grade === msgGrade && 
+             (msgSection ? m.section === msgSection : !m.section) && 
+             m.category === msgCategory
+      );
+
+      if (existing) {
+        await supabase
+          .from("subscription_messages")
+          .update(messageData)
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("subscription_messages").insert(messageData);
+      }
+
+      // Refresh messages
+      const { data: messages } = await supabase
+        .from("subscription_messages")
+        .select("*");
+      setSubscriptionMessages((messages as SubscriptionMessage[]) || []);
+
+      toast.success("تم حفظ رسالة الاشتراك");
+    } catch (error) {
+      console.error("Error saving subscription message:", error);
+      toast.error("خطأ في حفظ الرسالة");
+    } finally {
+      setIsSavingMessage(false);
     }
   };
 
@@ -490,22 +691,26 @@ const SubscriptionsPage = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="manage" className="gap-2">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">تفعيل اشتراك</span>
+              <span className="hidden sm:inline">تفعيل</span>
             </TabsTrigger>
             <TabsTrigger value="view" className="gap-2">
               <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">عرض المشتركين</span>
+              <span className="hidden sm:inline">المشتركين</span>
             </TabsTrigger>
             <TabsTrigger value="status" className="gap-2">
               <Search className="h-4 w-4" />
-              <span className="hidden sm:inline">بحث حالة</span>
+              <span className="hidden sm:inline">حالة</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">الرسائل</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">الإعدادات</span>
+              <span className="hidden sm:inline">إعدادات</span>
             </TabsTrigger>
           </TabsList>
 
@@ -515,10 +720,10 @@ const SubscriptionsPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="h-5 w-5" />
-                  تفعيل / إدارة اشتراك طالب
+                  تفعيل اشتراك طالب
                 </CardTitle>
                 <CardDescription>
-                  ابحث عن طالب بالاسم أو كود الطالب لتفعيل اشتراكه
+                  ابحث عن طالب بالاسم أو كود الطالب - ستظهر فقط المواد الخاصة بمرحلته وصفه
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -563,9 +768,23 @@ const SubscriptionsPage = () => {
                                 {student.student_code || student.email}
                               </p>
                             </div>
-                            {student.grade && (
-                              <Badge variant="secondary">{student.grade}</Badge>
-                            )}
+                            <div className="flex gap-1 flex-wrap">
+                              {student.stage && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {formatStage(student.stage)}
+                                </Badge>
+                              )}
+                              {student.grade && (
+                                <Badge variant="outline" className="text-xs">
+                                  {formatGrade(student.grade)}
+                                </Badge>
+                              )}
+                              {student.section && (
+                                <Badge variant="outline" className="text-xs">
+                                  {formatSection(student.section)}
+                                </Badge>
+                              )}
+                            </div>
                           </button>
                         ))}
                       </ScrollArea>
@@ -586,8 +805,8 @@ const SubscriptionsPage = () => {
                             <h3 className="font-semibold">{selectedStudent.full_name}</h3>
                             <p className="text-sm text-muted-foreground">
                               {selectedStudent.student_code && `كود: ${selectedStudent.student_code} • `}
-                              {selectedStudent.grade && `${selectedStudent.grade}`}
-                              {selectedStudent.section && ` • ${selectedStudent.section}`}
+                              {formatStage(selectedStudent.stage)} • {formatGrade(selectedStudent.grade)}
+                              {selectedStudent.section && ` • ${formatSection(selectedStudent.section)}`}
                             </p>
                           </div>
                           <Button
@@ -601,110 +820,120 @@ const SubscriptionsPage = () => {
                       </CardContent>
                     </Card>
 
-                    {/* Subjects Selection */}
+                    {/* Categories Selection - Grouped Subjects */}
                     <div className="space-y-3">
                       <Label className="text-base font-semibold">اختر المواد للاشتراك</Label>
-                      <div className="grid gap-2 max-h-[300px] overflow-y-auto">
-                        {studentSubjects.map((subject) => {
-                          const isSubscribed = hasActiveSubscription(subject.id);
-                          const endDate = getSubscriptionEndDate(subject.id);
-                          const subscription = studentSubscriptions.find(
-                            (s) => s.subject_id === subject.id
-                          );
+                      <p className="text-sm text-muted-foreground">
+                        يتم عرض المواد الخاصة بـ {formatStage(selectedStudent.stage)} - {formatGrade(selectedStudent.grade)}
+                        {selectedStudent.section && ` - ${formatSection(selectedStudent.section)}`} فقط
+                      </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {studentCategories.map((category) => {
+                          const isSubscribed = hasActiveCategorySubscription(category.id);
+                          const endDate = getCategorySubscriptionEndDate(category.id);
 
                           return (
-                            <div
-                              key={subject.id}
-                              className={`p-3 rounded-lg border transition-colors ${
+                            <Card
+                              key={category.id}
+                              className={`transition-all cursor-pointer ${
                                 isSubscribed
                                   ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800"
-                                  : selectedSubjects.includes(subject.id)
-                                  ? "bg-primary/10 border-primary"
-                                  : "hover:bg-accent"
+                                  : selectedCategories.includes(category.id)
+                                  ? "bg-primary/10 border-primary ring-2 ring-primary/20"
+                                  : "hover:bg-accent hover:border-primary/50"
                               }`}
+                              onClick={() => !isSubscribed && toggleCategory(category.id)}
                             >
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={selectedSubjects.includes(subject.id)}
-                                  onCheckedChange={() => toggleSubject(subject.id)}
-                                  disabled={isSubscribed}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{subject.name}</span>
-                                    {isSubscribed && (
-                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-3">
+                                  <Checkbox
+                                    checked={selectedCategories.includes(category.id)}
+                                    onCheckedChange={() => toggleCategory(category.id)}
+                                    disabled={isSubscribed}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold">{category.name}</span>
+                                      {isSubscribed && (
+                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                      )}
+                                    </div>
+                                    {category.includes && (
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        يشمل: {category.includes}
+                                      </p>
+                                    )}
+                                    {isSubscribed && endDate && (
+                                      <div className="mt-2">
+                                        <p className="text-xs text-green-600 font-medium">
+                                          مشترك حتى {formatDate(endDate.toISOString())}
+                                        </p>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 text-xs text-destructive hover:text-destructive p-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            deactivateCategorySubscription(category.id);
+                                          }}
+                                        >
+                                          إلغاء الاشتراك
+                                        </Button>
+                                      </div>
                                     )}
                                   </div>
-                                  <p className="text-xs text-muted-foreground">
-                                    {subject.stage} - {subject.grade}
-                                    {subject.section && ` - ${subject.section}`}
-                                  </p>
                                 </div>
-                                {isSubscribed && endDate && (
-                                  <div className="text-left">
-                                    <p className="text-xs text-green-600 font-medium">
-                                      مشترك حتى {formatDate(endDate.toISOString())}
-                                    </p>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 text-xs text-destructive hover:text-destructive"
-                                      onClick={() =>
-                                        subscription && deactivateSubscription(subscription.id)
-                                      }
-                                    >
-                                      إلغاء
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
+                              </CardContent>
+                            </Card>
                           );
                         })}
                       </div>
                     </div>
 
                     {/* Duration Selection */}
-                    {selectedSubjects.length > 0 && (
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">مدة الاشتراك</Label>
-                        <Select value={duration} onValueChange={setDuration}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="30">30 يوم</SelectItem>
-                            <SelectItem value="60">60 يوم</SelectItem>
-                            <SelectItem value="90">90 يوم</SelectItem>
-                            <SelectItem value="180">180 يوم (6 أشهر)</SelectItem>
-                            <SelectItem value="365">365 يوم (سنة)</SelectItem>
-                            <SelectItem value="custom">تاريخ مخصص</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {selectedCategories.length > 0 && (
+                      <Card className="bg-accent/50">
+                        <CardContent className="p-4 space-y-4">
+                          <Label className="text-base font-semibold">مدة الاشتراك</Label>
+                          <Select value={duration} onValueChange={setDuration}>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="30">30 يوم</SelectItem>
+                              <SelectItem value="60">60 يوم</SelectItem>
+                              <SelectItem value="90">90 يوم</SelectItem>
+                              <SelectItem value="180">180 يوم (6 أشهر)</SelectItem>
+                              <SelectItem value="365">365 يوم (سنة)</SelectItem>
+                              <SelectItem value="custom">تاريخ مخصص</SelectItem>
+                            </SelectContent>
+                          </Select>
 
-                        {duration === "custom" && (
-                          <Input
-                            type="date"
-                            value={customEndDate}
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                          />
-                        )}
-
-                        <Button
-                          onClick={saveSubscriptions}
-                          disabled={isSaving}
-                          className="w-full"
-                        >
-                          {isSaving ? (
-                            <Loader2 className="h-4 w-4 animate-spin ml-2" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 ml-2" />
+                          {duration === "custom" && (
+                            <Input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              min={new Date().toISOString().split("T")[0]}
+                            />
                           )}
-                          تفعيل الاشتراك ({selectedSubjects.length} مادة)
-                        </Button>
-                      </div>
+
+                          <Button
+                            onClick={saveSubscriptions}
+                            disabled={isSaving}
+                            className="w-full"
+                            size="lg"
+                          >
+                            {isSaving ? (
+                              <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 ml-2" />
+                            )}
+                            تفعيل الاشتراك ({selectedCategories.length} مادة)
+                          </Button>
+                        </CardContent>
+                      </Card>
                     )}
                   </div>
                 )}
@@ -883,9 +1112,9 @@ const SubscriptionsPage = () => {
                             </h3>
                             <p className="text-sm text-muted-foreground">
                               كود: {statusSearchResult.student.student_code || "غير محدد"} •{" "}
-                              {statusSearchResult.student.grade || ""}
+                              {formatStage(statusSearchResult.student.stage)} • {formatGrade(statusSearchResult.student.grade)}
                               {statusSearchResult.student.section &&
-                                ` • ${statusSearchResult.student.section}`}
+                                ` • ${formatSection(statusSearchResult.student.section)}`}
                             </p>
                           </div>
                         </div>
@@ -914,7 +1143,7 @@ const SubscriptionsPage = () => {
                                         {sub.subjects?.name || "مادة غير معروفة"}
                                       </p>
                                       <p className="text-sm text-muted-foreground">
-                                        {sub.subjects?.stage} - {sub.subjects?.grade}
+                                        {formatStage(sub.subjects?.stage || "")} - {formatGrade(sub.subjects?.grade || "")}
                                       </p>
                                     </div>
                                   </div>
@@ -940,11 +1169,6 @@ const SubscriptionsPage = () => {
                                         {daysRemaining} يوم متبقي
                                       </p>
                                     )}
-                                    {sub.renewal_count > 0 && (
-                                      <p className="text-xs text-muted-foreground">
-                                        تم التجديد {sub.renewal_count} مرة
-                                      </p>
-                                    )}
                                   </div>
                                 </div>
                               </CardContent>
@@ -959,16 +1183,165 @@ const SubscriptionsPage = () => {
             </Card>
           </TabsContent>
 
+          {/* Subscription Messages Tab */}
+          <TabsContent value="messages" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  إعدادات رسائل الاشتراك
+                </CardTitle>
+                <CardDescription>
+                  تخصيص رسالة الاشتراك لكل مرحلة وصف ومادة
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Selection Form */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>المرحلة</Label>
+                    <Select value={msgStage} onValueChange={setMsgStage}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="preparatory">إعدادي</SelectItem>
+                        <SelectItem value="secondary">ثانوي</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>الصف</Label>
+                    <Select value={msgGrade} onValueChange={setMsgGrade}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="first">الأول</SelectItem>
+                        <SelectItem value="second">الثاني</SelectItem>
+                        <SelectItem value="third">الثالث</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {msgStage === "secondary" && (
+                    <div className="space-y-2">
+                      <Label>القسم</Label>
+                      <Select value={msgSection} onValueChange={setMsgSection}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر القسم" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="scientific">علمي</SelectItem>
+                          <SelectItem value="literary">أدبي</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>المادة</Label>
+                    <Select value={msgCategory} onValueChange={setMsgCategory}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getCategoriesForStudent(msgStage, msgSection).map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Message Form */}
+                <div className="space-y-4 p-4 rounded-lg bg-accent/50">
+                  <div className="space-y-2">
+                    <Label>رسالة الترحيب</Label>
+                    <Textarea
+                      value={currentMessage.welcome_message}
+                      onChange={(e) =>
+                        setCurrentMessage({ ...currentMessage, welcome_message: e.target.value })
+                      }
+                      placeholder="مرحباً بك! اشترك الآن للوصول لجميع المحتوى..."
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>سعر الاشتراك</Label>
+                      <Input
+                        value={currentMessage.price}
+                        onChange={(e) =>
+                          setCurrentMessage({ ...currentMessage, price: e.target.value })
+                        }
+                        placeholder="100"
+                        type="number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>العملة</Label>
+                      <Input value={settings.currency} disabled />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>ما يشمله الاشتراك</Label>
+                    <Input
+                      value={currentMessage.includes_description}
+                      onChange={(e) =>
+                        setCurrentMessage({ ...currentMessage, includes_description: e.target.value })
+                      }
+                      placeholder="نحو + بلاغة + أدب + نصوص"
+                    />
+                  </div>
+
+                  <Button onClick={saveSubscriptionMessage} disabled={isSavingMessage} className="w-full">
+                    {isSavingMessage ? (
+                      <Loader2 className="h-4 w-4 animate-spin ml-2" />
+                    ) : (
+                      <Save className="h-4 w-4 ml-2" />
+                    )}
+                    حفظ رسالة الاشتراك
+                  </Button>
+                </div>
+
+                {/* Preview */}
+                <Card className="bg-gradient-to-br from-primary/10 to-gold/10 border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="text-sm">معاينة الرسالة</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="whitespace-pre-wrap text-sm">{currentMessage.welcome_message}</p>
+                    <div className="flex items-center gap-2 text-lg font-bold text-primary">
+                      <span>{currentMessage.price}</span>
+                      <span className="text-sm">{settings.currency}</span>
+                    </div>
+                    {currentMessage.includes_description && (
+                      <p className="text-xs text-muted-foreground">
+                        يشمل: {currentMessage.includes_description}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  إعدادات الاشتراك والدفع
+                  إعدادات واتساب العامة
                 </CardTitle>
                 <CardDescription>
-                  تخصيص رسالة الاشتراك ومعلومات التواصل
+                  رسالة واتساب الموحدة عند الضغط على زر الاشتراك
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1015,8 +1388,7 @@ const SubscriptionsPage = () => {
                       المتغيرات المتاحة: {"{subject}"} - {"{grade}"} - {"{stage}"} -{" "}
                       {"{section}"} - {"{student_id}"}
                     </p>
-                    <textarea
-                      className="w-full min-h-[120px] p-3 rounded-lg border border-input bg-background resize-none"
+                    <Textarea
                       value={settings.message}
                       onChange={(e) =>
                         setSettings({ ...settings, message: e.target.value })
@@ -1027,6 +1399,7 @@ const SubscriptionsPage = () => {
 المرحلة: {stage}
 القسم: {section}
 ID الطالب: {student_id}`}
+                      rows={6}
                     />
                   </div>
                 </div>

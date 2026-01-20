@@ -342,6 +342,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_messages: {
+        Row: {
+          category: string
+          created_at: string | null
+          created_by: string | null
+          grade: string
+          id: string
+          includes_description: string | null
+          price: string
+          section: string | null
+          stage: string
+          updated_at: string | null
+          welcome_message: string
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          created_by?: string | null
+          grade: string
+          id?: string
+          includes_description?: string | null
+          price: string
+          section?: string | null
+          stage: string
+          updated_at?: string | null
+          welcome_message: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          created_by?: string | null
+          grade?: string
+          id?: string
+          includes_description?: string | null
+          price?: string
+          section?: string | null
+          stage?: string
+          updated_at?: string | null
+          welcome_message?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
