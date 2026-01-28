@@ -26,7 +26,7 @@ interface SignUpData {
   section?: string;
 }
 
-// تحديث بيانات المعلم لتشمل التخصصات
+// تعريف شكل بيانات تخصص المعلم
 export interface TeacherAssignment {
   subject: string;
   stage: string;
@@ -40,7 +40,7 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
-  assignments: TeacherAssignment[]; // التخصصات المختارة
+  assignments: TeacherAssignment[]; // قائمة التخصصات
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,22 +81,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getProfile = async (userId: string) => {
     try {
-      // Get role
+      // 1. جلب الدور
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
       
       const userRole = (roleData?.role as AppRole) || "student";
       setRole(userRole);
 
-      // Get profile status (banned or not)
+      // 2. التحقق من الحظر
       const { data: profileData } = await supabase
         .from("profiles")
         .select("is_banned")
         .eq("id", userId)
-        .maybeSingle(); // Use maybeSingle to avoid error if profile doesn't exist yet
+        .maybeSingle();
 
       if (profileData) {
         setIsBanned(profileData.is_banned || false);
@@ -132,7 +132,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
-        options: {\n          emailRedirectTo: redirectUrl,
+        options: {
+          emailRedirectTo: redirectUrl,
           data: {
             full_name: data.fullName,
             phone: data.phone,
@@ -157,6 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // دالة تسجيل المعلم الجديدة
   const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
@@ -172,7 +174,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phone: data.phone,
             school_name: data.schoolName,
             employee_id: data.employeeId,
-            role: "teacher", // This triggers the handle_new_user function
+            role: "teacher", 
           },
         },
       });
@@ -184,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: error.message };
       }
 
-      // 2. حفظ تخصصات المعلم (المواد والصفوف)
+      // 2. حفظ تخصصات المعلم في الجدول الجديد
       if (authData.user && data.assignments.length > 0) {
         const assignmentsToInsert = data.assignments.map(assignment => ({
           teacher_id: authData.user!.id,
@@ -199,7 +201,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (assignmentError) {
           console.error("Error inserting assignments:", assignmentError);
-          // لا نوقف التسجيل، ولكن نسجل الخطأ (يمكن للمعلم إضافتها لاحقاً)
         }
       }
 
