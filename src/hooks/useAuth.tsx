@@ -22,15 +22,13 @@ interface SignUpData {
   fullName: string;
   phone?: string;
   username?: string;
-  stage?: string;
-  grade?: string;
-  section?: string;
 }
 
-export interface TeacherAssignment {
+interface TeacherAssignment {
   subject: string;
   stage: string;
   grade: string;
+  section: string | null;
 }
 
 interface TeacherSignUpData {
@@ -64,33 +62,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) getProfile(session.user.id);
       else { setRole(null); setIsLoading(false); }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
   const getProfile = async (userId: string) => {
     try {
       const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
-      const userRole = (roleData?.role as AppRole) || "student";
-      setRole(userRole);
-
+      setRole((roleData?.role as AppRole) || "student");
       const { data: profileData } = await supabase.from("profiles").select("is_banned").eq("id", userId).maybeSingle();
       if (profileData) setIsBanned(profileData.is_banned || false);
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
 
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
+      if (error) return { error: "خطأ في البريد أو كلمة المرور" };
       return { error: null };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    } catch (error: any) { return { error: error.message }; }
   };
 
   const signUp = async (data: SignUpData) => {
@@ -104,20 +93,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phone: data.phone,
             username: data.username,
             role: "student",
-            stage: null, grade: null, section: null,
           },
         },
       });
       if (error) return { error: error.message };
       return { error: null };
-    } catch (error: any) {
-      return { error: "حدث خطأ أثناء إنشاء الحساب" };
-    }
+    } catch (error: any) { return { error: "حدث خطأ" }; }
   };
 
   const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
-      // 1. تسجيل المستخدم
+      // 1. تسجيل الحساب
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -125,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             full_name: data.fullName,
             phone: data.phone,
-            role: "teacher", 
+            role: "teacher",
           },
         },
       });
@@ -134,36 +120,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // 2. إدخال التخصصات
       if (authData.user && data.assignments.length > 0) {
-        const assignmentsToInsert = data.assignments.map(assignment => ({
+        const assignmentsToInsert = data.assignments.map(a => ({
           teacher_id: authData.user!.id,
-          subject_category: assignment.subject,
-          stage: assignment.stage,
-          grade: assignment.grade
+          subject_id: a.subject, // تأكدنا من تسمية العمود في SQL
+          stage: a.stage,
+          grade: a.grade,
+          section: a.section
         }));
 
         const { error: assignmentError } = await supabase
           .from('teacher_assignments')
           .insert(assignmentsToInsert);
         
-        if (assignmentError) {
-          console.error("Error inserting assignments:", assignmentError);
-          // لا نوقف العملية لأن الحساب أُنشئ، لكن نسجل الخطأ
-        }
+        if (assignmentError) console.error("Assignment Error:", assignmentError);
       }
-
       return { error: null };
-    } catch (error: any) {
-      console.error("Teacher sign up error:", error);
-      return { error: "حدث خطأ أثناء إنشاء الحساب" };
-    }
+    } catch (error: any) { return { error: "حدث خطأ أثناء التسجيل" }; }
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setRole(null);
-    setIsBanned(false);
+    setUser(null); setSession(null); setRole(null);
   };
 
   return (
