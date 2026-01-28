@@ -1,352 +1,160 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import {
-  GraduationCap,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Loader2,
-  Eye,
-  Mail,
-  Phone,
-  Building,
-  IdCard,
-} from "lucide-react";
+import { Check, X, Loader2, BookOpen, User } from "lucide-react";
 
-type TeacherRequest = {
-  id: string;
-  user_id: string;
+interface TeacherRequest {
+  id: string; // teacher_id
   full_name: string;
   email: string;
-  phone: string | null;
-  school_name: string | null;
-  employee_id: string | null;
-  status: "pending" | "approved" | "rejected";
-  rejection_reason: string | null;
-  created_at: string | null;
-};
+  phone: string;
+  approval_status: string;
+  assignments: { subject_category: string; stage: string; grade: string }[];
+}
 
-const TeachersPage = () => {
+const AdminTeachersPage = () => {
   const [requests, setRequests] = useState<TeacherRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState<TeacherRequest | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
-  const [showRejectDialog, setShowRejectDialog] = useState(false);
 
-  const loadRequests = async () => {
+  // جلب الطلبات
+  const fetchRequests = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("teacher_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // 1. جلب المعلمين المعلقين
+      const { data: profiles, error } = await supabase
+        .from('teacher_profiles')
+        .select(`
+          teacher_id,
+          approval_status,
+          profiles:teacher_id (full_name, email, phone)
+        `)
+        .eq('approval_status', 'pending');
 
       if (error) throw error;
-      setRequests(data || []);
+
+      // 2. جلب تخصصات كل معلم
+      const requestsWithAssignments = await Promise.all(
+        profiles.map(async (p: any) => {
+          const { data: assignments } = await supabase
+            .from('teacher_assignments')
+            .select('*')
+            .eq('teacher_id', p.teacher_id);
+            
+          return {
+            id: p.teacher_id,
+            full_name: p.profiles?.full_name || "بدون اسم",
+            email: p.profiles?.email || "",
+            phone: p.profiles?.phone || "",
+            approval_status: p.approval_status,
+            assignments: assignments || []
+          };
+        })
+      );
+
+      setRequests(requestsWithAssignments);
     } catch (error) {
-      console.error("Error loading requests:", error);
-      toast.error("خطأ في تحميل طلبات المعلمين");
+      console.error(error);
+      toast.error("فشل جلب الطلبات");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadRequests();
+    fetchRequests();
   }, []);
 
-  const handleApprove = async (request: TeacherRequest) => {
-    setActionLoading(true);
-    try {
-      // Update request status
-      const { error: requestError } = await supabase
-        .from("teacher_requests")
-        .update({
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", request.id);
-
-      if (requestError) throw requestError;
-
-      // Add teacher role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: request.user_id,
-          role: "teacher",
-        });
-
-      if (roleError && !roleError.message.includes("duplicate")) {
-        throw roleError;
-      }
-
-      toast.success("تمت الموافقة على طلب المعلم");
-      loadRequests();
-      setShowDetails(false);
-    } catch (error) {
-      console.error("Error approving:", error);
-      toast.error("خطأ في الموافقة على الطلب");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReject = async () => {
-    if (!selectedRequest) return;
-    setActionLoading(true);
+  // دالة الموافقة أو الرفض
+  const handleAction = async (teacherId: string, action: 'approved' | 'rejected') => {
     try {
       const { error } = await supabase
-        .from("teacher_requests")
-        .update({
-          status: "rejected",
-          rejection_reason: rejectionReason || "لم يستوفِ الشروط المطلوبة",
-          reviewed_at: new Date().toISOString(),
+        .from('teacher_profiles')
+        .update({ 
+          approval_status: action,
+          is_approved: action === 'approved' 
         })
-        .eq("id", selectedRequest.id);
+        .eq('teacher_id', teacherId);
 
       if (error) throw error;
 
-      toast.success("تم رفض طلب المعلم");
-      setRejectionReason("");
-      setShowRejectDialog(false);
-      setShowDetails(false);
-      loadRequests();
+      toast.success(action === 'approved' ? "تم قبول المعلم بنجاح" : "تم رفض الطلب");
+      fetchRequests(); // تحديث القائمة
     } catch (error) {
-      console.error("Error rejecting:", error);
-      toast.error("خطأ في رفض الطلب");
-    } finally {
-      setActionLoading(false);
+      toast.error("حدث خطأ");
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary" className="gap-1"><Clock className="h-3 w-3" /> قيد المراجعة</Badge>;
-      case "approved":
-        return <Badge className="bg-green-500 gap-1"><CheckCircle className="h-3 w-3" /> مقبول</Badge>;
-      case "rejected":
-        return <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> مرفوض</Badge>;
-      default:
-        return null;
-    }
+  // ترجمة النصوص
+  const translateSubject = (s: string) => {
+    const map: any = { arabic: "عربي", math: "رياضيات", science: "علوم", english: "إنجليزي", religious: "شرعي", history: "تاريخ", physics: "فيزياء", chemistry: "كيمياء", biology: "أحياء" };
+    return map[s] || s;
   };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("ar-EG", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5" />
-            طلبات المعلمين
-            {pendingCount > 0 && (
-              <Badge variant="destructive" className="mr-2">{pendingCount} طلب جديد</Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          ) : requests.length === 0 ? (
-            <p className="text-center text-muted-foreground py-12">
-              لا توجد طلبات معلمين
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-right">الاسم</TableHead>
-                    <TableHead className="text-right">البريد</TableHead>
-                    <TableHead className="text-right">المدرسة</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">تاريخ الطلب</TableHead>
-                    <TableHead className="text-right">إجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.map((request) => (
-                    <TableRow key={request.id}>
-                      <TableCell className="font-medium">{request.full_name}</TableCell>
-                      <TableCell>{request.email}</TableCell>
-                      <TableCell>{request.school_name || "-"}</TableCell>
-                      <TableCell>{getStatusBadge(request.status)}</TableCell>
-                      <TableCell>{formatDate(request.created_at)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSelectedRequest(request);
-                              setShowDetails(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {request.status === "pending" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-green-600"
-                                onClick={() => handleApprove(request)}
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive"
-                                onClick={() => {
-                                  setSelectedRequest(request);
-                                  setShowRejectDialog(true);
-                                }}
-                              >
-                                <XCircle className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-6 p-6">
+      <h1 className="text-3xl font-bold text-primary">طلبات انضمام المعلمين</h1>
+      
+      {loading ? (
+        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+      ) : requests.length === 0 ? (
+        <p className="text-center text-muted-foreground">لا توجد طلبات معلقة حالياً</p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {requests.map((req) => (
+            <Card key={req.id} className="border-l-4 border-l-gold">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex justify-between items-center">
+                  <span className="flex items-center gap-2">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                    {req.full_name}
+                  </span>
+                  <Badge variant="outline">{req.approval_status}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="text-sm space-y-1 text-muted-foreground">
+                  <p>البريد: {req.email}</p>
+                  <p>الهاتف: {req.phone}</p>
+                </div>
+                
+                <div className="bg-muted/50 p-3 rounded-md">
+                  <p className="text-xs font-bold mb-2 flex items-center gap-1">
+                    <BookOpen className="h-3 w-3" /> التخصصات المطلوبة:
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {req.assignments.map((a, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        {translateSubject(a.subject_category)} - {a.grade === 'first' ? '1' : a.grade === 'second' ? '2' : '3'} {a.stage === 'secondary' ? 'ث' : 'ع'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
 
-      {/* Dialog تفاصيل الطلب */}
-      <Dialog open={showDetails} onOpenChange={setShowDetails}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>تفاصيل طلب المعلم</DialogTitle>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <GraduationCap className="h-6 w-6 text-primary" />
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    className="flex-1 bg-green-600 hover:bg-green-700" 
+                    onClick={() => handleAction(req.id, 'approved')}
+                  >
+                    <Check className="h-4 w-4 ml-2" /> موافقة
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    className="flex-1"
+                    onClick={() => handleAction(req.id, 'rejected')}
+                  >
+                    <X className="h-4 w-4 ml-2" /> رفض
+                  </Button>
                 </div>
-                <div>
-                  <p className="font-bold text-lg">{selectedRequest.full_name}</p>
-                  {getStatusBadge(selectedRequest.status)}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedRequest.email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedRequest.phone || "غير محدد"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedRequest.school_name || "غير محدد"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <IdCard className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{selectedRequest.employee_id || "غير محدد"}</span>
-                </div>
-              </div>
-
-              {selectedRequest.rejection_reason && (
-                <div className="p-3 bg-destructive/10 rounded-lg">
-                  <p className="text-sm font-medium text-destructive">سبب الرفض:</p>
-                  <p className="text-sm">{selectedRequest.rejection_reason}</p>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            {selectedRequest?.status === "pending" && (
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setShowDetails(false);
-                    setShowRejectDialog(true);
-                  }}
-                  className="flex-1"
-                >
-                  رفض
-                </Button>
-                <Button
-                  onClick={() => handleApprove(selectedRequest)}
-                  disabled={actionLoading}
-                  className="flex-1"
-                >
-                  {actionLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                  قبول
-                </Button>
-              </div>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog الرفض */}
-      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>رفض طلب المعلم</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              يرجى كتابة سبب الرفض (سيظهر للمعلم)
-            </p>
-            <Textarea
-              placeholder="سبب الرفض..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-              إلغاء
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={actionLoading}
-            >
-              {actionLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-              تأكيد الرفض
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
-export default TeachersPage;
+export default AdminTeachersPage;
