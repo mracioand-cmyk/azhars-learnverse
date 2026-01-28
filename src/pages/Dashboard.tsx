@@ -4,20 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import {
   BookOpen,
   ChevronLeft,
-  GraduationCap,
   User,
   LogOut,
   Loader2,
-  BookText,
-  School,
-  Lock
 } from "lucide-react";
 
-// تعريف المواد والألوان (نفس القديم)
+// تعريف المواد والألوان
 const SUBJECTS_CONFIG: any = {
   arabic: { name: "لغة عربية", color: "from-green-500 to-emerald-700" },
   religious: { name: "مواد شرعية", color: "from-amber-500 to-orange-700" },
@@ -40,28 +35,27 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
 
-  // 1. التحقق من التوجيه
   useEffect(() => {
     if (!user) {
       navigate("/auth");
       return;
     }
 
-    const checkTeacherStatus = async () => {
+    const checkStatus = async () => {
       if (role === 'teacher') {
-        // التحقق من حالة الموافقة
         const { data: profile } = await supabase
           .from('teacher_profiles')
           .select('is_approved')
           .eq('teacher_id', user.id)
           .single();
 
-        if (!profile?.is_approved) {
+        // 🛑 الحارس: إذا لم يوافق عليه المطور
+        if (!profile || profile.is_approved !== true) {
           navigate("/pending-approval");
           return;
         }
 
-        // جلب تخصصات المعلم (المواد والصفوف)
+        // جلب تخصصات المعلم
         const { data: assignments } = await supabase
           .from('teacher_assignments')
           .select('*')
@@ -72,10 +66,9 @@ const Dashboard = () => {
       setLoading(false);
     };
 
-    checkTeacherStatus();
+    checkStatus();
   }, [user, role, navigate]);
 
-  // دالة الخروج
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
@@ -83,7 +76,7 @@ const Dashboard = () => {
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
-  // --- واجهة المعلم (Teacher View) ---
+  // --- واجهة المعلم ---
   if (role === 'teacher') {
     return (
       <div className="min-h-screen bg-muted/30 p-4 font-cairo" dir="rtl">
@@ -135,11 +128,9 @@ const Dashboard = () => {
     );
   }
 
-  // --- واجهة الطالب (Student View - القديمة) ---
+  // --- واجهة الطالب (كما هي) ---
   return (
     <div className="min-h-screen bg-muted/30 p-4 font-cairo" dir="rtl">
-       {/* (هنا الكود القديم الخاص بداشبورد الطالب كما هو لم يتغير) */}
-       {/* سأضع لك مثالاً مبسطاً لعدم الإطالة، لكن في ملفك الحقيقي اترك كود الطالب كما كان */}
        <header className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-bold text-primary">لوحة الطالب</h1>
           <Button variant="ghost" onClick={handleSignOut}><LogOut className="ml-2 h-4 w-4" /> خروج</Button>
