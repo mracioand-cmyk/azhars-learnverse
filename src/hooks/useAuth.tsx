@@ -21,6 +21,8 @@ interface SignUpData {
   password: string;
   fullName: string;
   phone?: string;
+  username?: string; // جديد: اسم المستخدم
+  // تم جعل المرحلة والصف اختياريين هنا لأن الطالب سيختارهم لاحقاً
   stage?: string;
   grade?: string;
   section?: string;
@@ -134,10 +136,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             full_name: data.fullName,
             phone: data.phone,
+            username: data.username, // حفظ اسم المستخدم
             role: "student",
-            stage: data.stage,
-            grade: data.grade,
-            section: data.section,
+            // نرسل هذه القيم كـ null في البداية
+            stage: null,
+            grade: null,
+            section: null,
           },
         },
       });
@@ -159,7 +163,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      // 1. إنشاء الحساب
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -182,7 +185,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: error.message };
       }
 
-      // 2. حفظ التخصصات
       if (authData.user && data.assignments.length > 0) {
         const assignmentsToInsert = data.assignments.map(assignment => ({
           teacher_id: authData.user!.id,
