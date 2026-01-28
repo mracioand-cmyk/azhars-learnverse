@@ -26,6 +26,13 @@ interface SignUpData {
   section?: string;
 }
 
+// تحديث بيانات المعلم لتشمل التخصصات
+export interface TeacherAssignment {
+  subject: string;
+  stage: string;
+  grade: string;
+}
+
 interface TeacherSignUpData {
   email: string;
   password: string;
@@ -33,10 +40,7 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
-  assignedStages?: string[];
-  assignedGrades?: string[];
-  assignedSections?: string[];
-  assignedCategory?: string;
+  assignments: TeacherAssignment[]; // التخصصات المختارة
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,141 +52,94 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isBanned, setIsBanned] = useState(false);
 
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-
-      if (roleError) {
-        console.error("Error fetching role:", roleError);
-        return null;
-      }
-
-      if (roleData) {
-        return roleData.role as AppRole;
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error in fetchUserRole:", error);
-      return null;
-    }
-  };
-
-  const checkIfBanned = async (userId: string) => {
-    try {
-      const { data: profileData, error } = await supabase
-        .from("profiles")
-        .select("is_banned")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error checking ban status:", error);
-        return false;
-      }
-
-      return profileData?.is_banned || false;
-    } catch (error) {
-      console.error("Error in checkIfBanned:", error);
-      return false;
-    }
-  };
-
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        // Defer Supabase calls with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(async () => {
-            const userRole = await fetchUserRole(session.user.id);
-            setRole(userRole);
-            
-            const banned = await checkIfBanned(session.user.id);
-            setIsBanned(banned);
-            
-            setIsLoading(false);
-          }, 0);
-        } else {
-          setRole(null);
-          setIsBanned(false);
-          setIsLoading(false);
-        }
-      }
-    );
-
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
-        fetchUserRole(session.user.id).then(setRole);
-        checkIfBanned(session.user.id).then(setIsBanned);
+        getProfile(session.user.id);
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        getProfile(session.user.id);
+      } else {
+        setRole(null);
+        setIsLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+  const getProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Get role
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+      
+      const userRole = (roleData?.role as AppRole) || "student";
+      setRole(userRole);
+
+      // Get profile status (banned or not)
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("is_banned")
+        .eq("id", userId)
+        .maybeSingle(); // Use maybeSingle to avoid error if profile doesn't exist yet
+
+      if (profileData) {
+        setIsBanned(profileData.is_banned || false);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
 
       if (error) {
-        // Handle specific error cases
-        if (error.message.includes("Invalid login credentials")) {
-          return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-        }
-        if (error.message.includes("Email not confirmed")) {
-          return { error: "يرجى تأكيد بريدك الإلكتروني أولاً" };
-        }
-        return { error: error.message };
-      }
-
-      if (data.user) {
-        // Check if user is banned
-        const banned = await checkIfBanned(data.user.id);
-        if (banned) {
-          await supabase.auth.signOut();
-          return { error: "حسابك موقوف – تواصل مع الدعم" };
-        }
+        return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
       }
 
       return { error: null };
     } catch (error: any) {
-      console.error("Sign in error:", error);
-      return { error: "حدث خطأ أثناء تسجيل الدخول" };
+      return { error: error.message };
     }
   };
 
-  const signUp = async (data: SignUpData): Promise<{ error: string | null }> => {
+  const signUp = async (data: SignUpData) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
-        options: {
-          emailRedirectTo: redirectUrl,
+        options: {\n          emailRedirectTo: redirectUrl,
           data: {
             full_name: data.fullName,
             phone: data.phone,
+            role: "student",
             stage: data.stage,
             grade: data.grade,
             section: data.section,
-            role: "student",
           },
         },
       });
@@ -191,24 +148,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error.message.includes("User already registered")) {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
-        if (error.message.includes("Password should be at least")) {
-          return { error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" };
-        }
         return { error: error.message };
       }
 
       return { error: null };
     } catch (error: any) {
-      console.error("Sign up error:", error);
       return { error: "حدث خطأ أثناء إنشاء الحساب" };
     }
   };
 
-  const signUpTeacher = async (data: TeacherSignUpData): Promise<{ error: string | null }> => {
+  const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      const { error } = await supabase.auth.signUp({
+      // 1. إنشاء الحساب الأساسي
+      const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
@@ -218,11 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phone: data.phone,
             school_name: data.schoolName,
             employee_id: data.employeeId,
-            role: "teacher",
-            assigned_stages: JSON.stringify(data.assignedStages || []),
-            assigned_grades: JSON.stringify(data.assignedGrades || []),
-            assigned_sections: JSON.stringify(data.assignedSections || []),
-            assigned_category: data.assignedCategory,
+            role: "teacher", // This triggers the handle_new_user function
           },
         },
       });
@@ -232,6 +182,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
         return { error: error.message };
+      }
+
+      // 2. حفظ تخصصات المعلم (المواد والصفوف)
+      if (authData.user && data.assignments.length > 0) {
+        const assignmentsToInsert = data.assignments.map(assignment => ({
+          teacher_id: authData.user!.id,
+          subject_category: assignment.subject,
+          stage: assignment.stage,
+          grade: assignment.grade
+        }));
+
+        const { error: assignmentError } = await supabase
+          .from('teacher_assignments')
+          .insert(assignmentsToInsert);
+        
+        if (assignmentError) {
+          console.error("Error inserting assignments:", assignmentError);
+          // لا نوقف التسجيل، ولكن نسجل الخطأ (يمكن للمعلم إضافتها لاحقاً)
+        }
       }
 
       return { error: null };
