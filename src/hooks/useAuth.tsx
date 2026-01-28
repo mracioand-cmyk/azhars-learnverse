@@ -21,8 +21,7 @@ interface SignUpData {
   password: string;
   fullName: string;
   phone?: string;
-  username?: string; // جديد: اسم المستخدم
-  // تم جعل المرحلة والصف اختياريين هنا لأن الطالب سيختارهم لاحقاً
+  username?: string;
   stage?: string;
   grade?: string;
   section?: string;
@@ -136,9 +135,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           data: {
             full_name: data.fullName,
             phone: data.phone,
-            username: data.username, // حفظ اسم المستخدم
+            username: data.username,
             role: "student",
-            // نرسل هذه القيم كـ null في البداية
             stage: null,
             grade: null,
             section: null,
