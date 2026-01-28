@@ -26,7 +26,6 @@ interface SignUpData {
   section?: string;
 }
 
-// تعريف شكل بيانات تخصص المعلم
 export interface TeacherAssignment {
   subject: string;
   stage: string;
@@ -40,7 +39,7 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
-  assignments: TeacherAssignment[]; // قائمة التخصصات
+  assignments: TeacherAssignment[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,7 +80,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getProfile = async (userId: string) => {
     try {
-      // 1. جلب الدور
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
@@ -91,7 +89,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userRole = (roleData?.role as AppRole) || "student";
       setRole(userRole);
 
-      // 2. التحقق من الحظر
       const { data: profileData } = await supabase
         .from("profiles")
         .select("is_banned")
@@ -158,12 +155,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // دالة تسجيل المعلم الجديدة
   const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      // 1. إنشاء الحساب الأساسي
+      // 1. إنشاء الحساب
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -186,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: error.message };
       }
 
-      // 2. حفظ تخصصات المعلم في الجدول الجديد
+      // 2. حفظ التخصصات
       if (authData.user && data.assignments.length > 0) {
         const assignmentsToInsert = data.assignments.map(assignment => ({
           teacher_id: authData.user!.id,
