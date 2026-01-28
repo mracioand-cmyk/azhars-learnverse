@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useSearchParams, useNavigate, Link } from "react-router-dom"; // تأكد من استيراد Link
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,7 +41,6 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // البيانات المشتركة
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -49,20 +48,16 @@ const Auth = () => {
   const [phone, setPhone] = useState("");
   const [username, setUsername] = useState("");
 
-  // بيانات المعلم (منطق جديد)
+  // بيانات المعلم
   const [selectedStage, setSelectedStage] = useState<"preparatory" | "secondary" | "">("");
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [selectedSection, setSelectedSection] = useState<"scientific" | "literary" | "both" | "">("");
   const [teacherSubject, setTeacherSubject] = useState("");
 
-  // معالجة اختيار الصفوف
   const toggleGrade = (grade: string) => {
-    setSelectedGrades(prev => 
-      prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]
-    );
+    setSelectedGrades(prev => prev.includes(grade) ? prev.filter(g => g !== grade) : [...prev, grade]);
   };
 
-  // فلترة المواد حسب المرحلة
   const filteredSubjects = SUBJECTS_LIST.filter(sub => {
     if (!selectedStage) return false;
     if (sub.type === "general") return true;
@@ -98,17 +93,15 @@ const Auth = () => {
           }
         } 
         else if (mode === "register-teacher") {
-          // التحقق من اكتمال بيانات المعلم
           if (!selectedStage || selectedGrades.length === 0 || !teacherSubject) {
-            toast.error("يرجى إكمال اختيار المرحلة والصفوف والمادة");
+            toast.error("البيانات ناقصة");
             setIsLoading(false); return;
           }
           if (selectedStage === "secondary" && !selectedSection) {
-            toast.error("يرجى اختيار القسم (علمي/أدبي)");
+            toast.error("اختر القسم");
             setIsLoading(false); return;
           }
 
-          // تجهيز التخصصات للإرسال
           const assignments = selectedGrades.map(grade => ({
             subject: teacherSubject,
             stage: selectedStage,
@@ -116,10 +109,7 @@ const Auth = () => {
             section: selectedStage === "secondary" ? selectedSection : null
           }));
 
-          const { error } = await signUpTeacher({
-            email, password, fullName, phone, assignments
-          });
-
+          const { error } = await signUpTeacher({ email, password, fullName, phone, assignments });
           if (error) toast.error(error);
           else {
             toast.success("تم إرسال طلبك بنجاح");
@@ -127,11 +117,7 @@ const Auth = () => {
           }
         }
       }
-    } catch (error) {
-      toast.error("حدث خطأ غير متوقع");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (error) { toast.error("حدث خطأ"); } finally { setIsLoading(false); }
   };
 
   return (
@@ -189,7 +175,7 @@ const Auth = () => {
 
               {mode === "login" && (
                 <>
-                   <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label>البريد الإلكتروني</Label>
                     <Input placeholder="example@azhar.edu.eg" value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
@@ -200,14 +186,12 @@ const Auth = () => {
                 </>
               )}
 
-              {/* === واجهة اختيار تخصص المعلم === */}
               {mode === "register-teacher" && (
                 <div className="space-y-4 pt-4 border-t mt-4 bg-muted/20 p-4 rounded-lg">
                   <Label className="font-bold text-primary flex items-center gap-2">
                     <Briefcase className="h-4 w-4" /> بيانات التدريس
                   </Label>
                   
-                  {/* 1. اختيار المرحلة */}
                   <div className="space-y-2">
                     <Label className="text-xs">المرحلة التعليمية</Label>
                     <div className="flex gap-2">
@@ -216,7 +200,6 @@ const Auth = () => {
                     </div>
                   </div>
 
-                  {/* 2. اختيار الصفوف */}
                   {selectedStage && (
                     <div className="space-y-2 animate-fade-in">
                       <Label className="text-xs">الصفوف الدراسية</Label>
@@ -233,7 +216,6 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* 3. اختيار القسم (للثانوي فقط) */}
                   {selectedStage === "secondary" && (
                     <div className="space-y-2 animate-fade-in">
                       <Label className="text-xs">القسم</Label>
@@ -248,7 +230,6 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* 4. اختيار المادة (يظهر أخيراً) */}
                   {(selectedStage === "preparatory" || (selectedStage === "secondary" && selectedSection)) && (
                     <div className="space-y-2 animate-fade-in">
                       <Label className="text-xs">المادة التي تدرسها</Label>
@@ -287,17 +268,6 @@ const Auth = () => {
             </form>
           </CardContent>
         </Card>
-
-        {/* زر العودة للصفحة الرئيسية */}
-        <div className="mt-8 text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ChevronLeft className="h-4 w-4 ml-1" />
-            العودة للصفحة الرئيسية
-          </Link>
-        </div>
       </div>
     </div>
   );
