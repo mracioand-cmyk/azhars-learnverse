@@ -38,8 +38,6 @@ interface TeacherSignUpData {
   password: string;
   fullName: string;
   phone?: string;
-  schoolName?: string;
-  employeeId?: string;
   assignments: TeacherAssignment[];
 }
 
@@ -56,24 +54,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        getProfile(session.user.id);
-      } else {
-        setIsLoading(false);
-      }
+      if (session?.user) getProfile(session.user.id);
+      else setIsLoading(false);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        getProfile(session.user.id);
-      } else {
-        setRole(null);
-        setIsLoading(false);
-      }
+      if (session?.user) getProfile(session.user.id);
+      else { setRole(null); setIsLoading(false); }
     });
 
     return () => subscription.unsubscribe();
@@ -81,24 +70,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const getProfile = async (userId: string) => {
     try {
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
-      
+      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
       const userRole = (roleData?.role as AppRole) || "student";
       setRole(userRole);
 
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("is_banned")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (profileData) {
-        setIsBanned(profileData.is_banned || false);
-      }
+      const { data: profileData } = await supabase.from("profiles").select("is_banned").eq("id", userId).maybeSingle();
+      if (profileData) setIsBanned(profileData.is_banned || false);
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
@@ -108,15 +85,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (error) {
-        return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
-      }
-
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
       return { error: null };
     } catch (error: any) {
       return { error: error.message };
@@ -125,32 +95,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUp = async (data: SignUpData) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: redirectUrl,
           data: {
             full_name: data.fullName,
             phone: data.phone,
             username: data.username,
             role: "student",
-            stage: null,
-            grade: null,
-            section: null,
+            stage: null, grade: null, section: null,
           },
         },
       });
-
-      if (error) {
-        if (error.message.includes("User already registered")) {
-          return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
-        }
-        return { error: error.message };
-      }
-
+      if (error) return { error: error.message };
       return { error: null };
     } catch (error: any) {
       return { error: "حدث خطأ أثناء إنشاء الحساب" };
@@ -159,30 +117,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
-      const redirectUrl = `${window.location.origin}/`;
-
+      // 1. تسجيل المستخدم
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
-          emailRedirectTo: redirectUrl,
           data: {
             full_name: data.fullName,
             phone: data.phone,
-            school_name: data.schoolName,
-            employee_id: data.employeeId,
             role: "teacher", 
           },
         },
       });
 
-      if (error) {
-        if (error.message.includes("User already registered")) {
-          return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
-        }
-        return { error: error.message };
-      }
+      if (error) return { error: error.message };
 
+      // 2. إدخال التخصصات
       if (authData.user && data.assignments.length > 0) {
         const assignmentsToInsert = data.assignments.map(assignment => ({
           teacher_id: authData.user!.id,
@@ -197,6 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (assignmentError) {
           console.error("Error inserting assignments:", assignmentError);
+          // لا نوقف العملية لأن الحساب أُنشئ، لكن نسجل الخطأ
         }
       }
 
@@ -216,19 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        role,
-        isLoading,
-        isBanned,
-        signIn,
-        signUp,
-        signUpTeacher,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={{ user, session, role, isLoading, isBanned, signIn, signUp, signUpTeacher, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -236,8 +175,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (context === undefined) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 };
