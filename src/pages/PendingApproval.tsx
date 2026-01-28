@@ -1,157 +1,64 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Clock, Mail, MessageSquare, LogOut, CheckCircle, XCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BookOpen, MessageCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/manualClient";
-
-type RequestStatus = "pending" | "approved" | "rejected" | null;
+import { useNavigate } from "react-router-dom";
 
 const PendingApproval = () => {
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth();
-  const [status, setStatus] = useState<RequestStatus>(null);
-  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
-
-  useEffect(() => {
-    // If user has a role and is not a pending teacher, redirect
-    if (role === "admin") {
-      navigate("/admin", { replace: true });
-      return;
-    }
-    if (role === "student") {
-      navigate("/dashboard", { replace: true });
-      return;
-    }
-
-    // Check teacher request status
-    const checkStatus = async () => {
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("teacher_requests")
-        .select("status, rejection_reason")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching teacher request:", error);
-        return;
-      }
-
-      if (data) {
-        setStatus(data.status as RequestStatus);
-        setRejectionReason(data.rejection_reason);
-      }
-    };
-
-    checkStatus();
-  }, [user, role, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
 
-  // If request was approved and user now has teacher role, this component won't show
-  // But we handle the case where the request is approved but role hasn't been assigned yet
-  if (status === "approved" && role === "teacher") {
-    navigate("/dashboard", { replace: true });
-    return null;
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
-      <div className="w-full max-w-md">
-        {/* الشعار */}
-        <Link to="/" className="flex items-center justify-center gap-3 mb-8 group">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-azhari shadow-azhari transition-transform duration-300 group-hover:scale-105">
-            <BookOpen className="h-6 w-6 text-primary-foreground" />
+    <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4 font-cairo">
+      <div className="w-full max-w-md animate-scale-in">
+        
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl gradient-azhari shadow-azhari mb-4">
+            <BookOpen className="h-8 w-8 text-primary-foreground" />
           </div>
-          <span className="text-2xl font-bold text-gradient-azhari">أزهاريون</span>
-        </Link>
+          <h1 className="text-3xl font-bold text-gradient-azhari mb-2">أزهاريون</h1>
+          <p className="text-muted-foreground">منصة التعليم الأزهري الذكية</p>
+        </div>
 
-        <Card className="shadow-lg animate-scale-in text-center">
-          <CardContent className="p-8">
-            {/* حالة الرفض */}
-            {status === "rejected" ? (
-              <>
-                <div className="mb-6 mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-destructive/10">
-                  <XCircle className="h-12 w-12 text-destructive" />
-                </div>
+        <Card className="border-border shadow-lg bg-card/95 backdrop-blur text-center">
+          <CardHeader>
+            <div className="mx-auto w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl">⏳</span>
+            </div>
+            <CardTitle className="text-xl font-bold text-primary">
+              مرحباً أستاذ {user?.user_metadata?.full_name}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2 text-muted-foreground">
+              <p className="font-medium text-foreground">تم استلام طلب انضمامك بنجاح!</p>
+              <p className="text-sm">
+                حسابك الآن قيد المراجعة من قبل إدارة المنصة.
+                سيتم تفعيل حسابك وإشعارك في أقرب وقت ممكن لتتمكن من إدارة موادك.
+              </p>
+            </div>
 
-                <h1 className="text-2xl font-bold text-destructive mb-3">
-                  تم رفض طلبك
-                </h1>
-
-                <p className="text-muted-foreground mb-4 leading-relaxed">
-                  نأسف، تم رفض طلب التسجيل كمعلم.
-                </p>
-
-                {rejectionReason && (
-                  <div className="bg-destructive/10 rounded-lg p-4 mb-6 text-right">
-                    <h3 className="font-semibold text-foreground mb-2">سبب الرفض:</h3>
-                    <p className="text-sm text-muted-foreground">{rejectionReason}</p>
-                  </div>
-                )}
-              </>
-            ) : status === "approved" ? (
-              <>
-                <div className="mb-6 mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-green-500/10">
-                  <CheckCircle className="h-12 w-12 text-green-500" />
-                </div>
-
-                <h1 className="text-2xl font-bold text-green-600 mb-3">
-                  تمت الموافقة على طلبك!
-                </h1>
-
-                <p className="text-muted-foreground mb-6 leading-relaxed">
-                  مبروك! تم قبول طلبك كمعلم. يمكنك الآن الوصول إلى المنصة.
-                </p>
-              </>
-            ) : (
-              <>
-                {/* أيقونة الانتظار */}
-                <div className="mb-6 mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gold/10 animate-pulse">
-                  <Clock className="h-12 w-12 text-gold" />
-                </div>
-
-                <h1 className="text-2xl font-bold text-foreground mb-3">
-                  طلبك قيد المراجعة
-                </h1>
-
-                <p className="text-muted-foreground mb-6 leading-relaxed">
-                  تم إرسال طلب التسجيل كمعلم بنجاح. سيقوم فريق الإدارة بمراجعة طلبك وستصلك رسالة بريد إلكتروني عند الموافقة.
-                </p>
-
-                <div className="bg-accent/50 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-foreground mb-2 flex items-center justify-center gap-2">
-                    <Mail className="h-5 w-5 text-primary" />
-                    ماذا بعد؟
-                  </h3>
-                  <ul className="text-sm text-muted-foreground space-y-2 text-right">
-                    <li>• سيتم مراجعة بياناتك ومستنداتك</li>
-                    <li>• ستصلك رسالة على بريدك الإلكتروني</li>
-                    <li>• بعد الموافقة يمكنك الدخول والبدء</li>
-                  </ul>
-                </div>
-              </>
-            )}
-
-            <div className="space-y-3">
-              <Button variant="outline" className="w-full" asChild>
-                <a href="https://wa.me/201223909712" target="_blank" rel="noopener noreferrer">
-                  <MessageSquare className="h-5 w-5 ml-2" />
-                  تواصل مع الدعم
-                </a>
-              </Button>
-
-              <Button variant="ghost" className="w-full" onClick={handleSignOut}>
-                <LogOut className="h-5 w-5 ml-2" />
-                تسجيل الخروج
+            <div className="bg-muted/50 p-4 rounded-lg border text-sm">
+              <p>هل تحتاج إلى تفعيل عاجل؟</p>
+              <Button 
+                variant="outline" 
+                className="w-full mt-2 gap-2 border-green-600 text-green-700 hover:bg-green-50"
+                onClick={() => window.open("https://wa.me/201000000000", "_blank")}
+              >
+                <MessageCircle className="h-4 w-4" />
+                تواصل مع الدعم الفني
               </Button>
             </div>
+
+            <Button variant="ghost" onClick={handleSignOut} className="text-red-500 hover:text-red-600 hover:bg-red-50">
+              <LogOut className="h-4 w-4 ml-2" />
+              تسجيل الخروج
+            </Button>
           </CardContent>
         </Card>
       </div>
