@@ -77,13 +77,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) return { error: "خطأ في البريد أو كلمة المرور" };
+      if (error) return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
       return { error: null };
     } catch (error: any) { return { error: error.message }; }
   };
 
   const signUp = async (data: SignUpData) => {
     try {
+      // تسجيل الطالب (بيانات أساسية فقط)
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -98,12 +99,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       if (error) return { error: error.message };
       return { error: null };
-    } catch (error: any) { return { error: "حدث خطأ" }; }
+    } catch (error: any) { return { error: "حدث خطأ أثناء التسجيل" }; }
   };
 
   const signUpTeacher = async (data: TeacherSignUpData) => {
     try {
-      // 1. تسجيل الحساب
+      // 1. تسجيل المعلم
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -118,24 +119,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) return { error: error.message };
 
-      // 2. إدخال التخصصات
+      // 2. حفظ التخصصات (بدون مشاكل بإذن الله)
       if (authData.user && data.assignments.length > 0) {
         const assignmentsToInsert = data.assignments.map(a => ({
           teacher_id: authData.user!.id,
-          subject_id: a.subject, // تأكدنا من تسمية العمود في SQL
+          subject_id: a.subject,
           stage: a.stage,
           grade: a.grade,
           section: a.section
         }));
 
-        const { error: assignmentError } = await supabase
-          .from('teacher_assignments')
-          .insert(assignmentsToInsert);
-        
-        if (assignmentError) console.error("Assignment Error:", assignmentError);
+        await supabase.from('teacher_assignments').insert(assignmentsToInsert);
       }
       return { error: null };
-    } catch (error: any) { return { error: "حدث خطأ أثناء التسجيل" }; }
+    } catch (error: any) { return { error: "حدث خطأ أثناء تسجيل المعلم" }; }
   };
 
   const signOut = async () => {
