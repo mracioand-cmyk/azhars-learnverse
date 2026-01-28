@@ -3,37 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import {
-  BookOpen, User, LogOut, Loader2, Home, Library, MessageSquare
+  BookOpen, LogOut, Home, Library, MessageSquare, User
 } from "lucide-react";
 
-// الشريط السفلي (تمت إعادته)
-const MobileNav = () => {
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-6 md:hidden z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-      <div className="flex justify-around items-center">
-        <Link to="/dashboard" className="flex flex-col items-center gap-1 text-primary">
-          <Home className="h-6 w-6" />
-          <span className="text-[10px] font-bold">الرئيسية</span>
-        </Link>
-        <Link to="/subjects" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
-          <Library className="h-6 w-6" />
-          <span className="text-[10px] font-medium">المواد</span>
-        </Link>
-        <Link to="/ai-chat" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
-          <MessageSquare className="h-6 w-6" />
-          <span className="text-[10px] font-medium">مساعدك</span>
-        </Link>
-        <Link to="/settings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
-          <User className="h-6 w-6" />
-          <span className="text-[10px] font-medium">حسابي</span>
-        </Link>
-      </div>
-    </div>
-  );
-};
-
+// المواد القديمة كما كانت
 const SUBJECTS_CONFIG: any = {
   arabic: { name: "لغة عربية", color: "from-green-500 to-emerald-700" },
   religious: { name: "مواد شرعية", color: "from-amber-500 to-orange-700" },
@@ -53,87 +27,19 @@ const SUBJECTS_CONFIG: any = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, role, signOut } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
+  const { user, signOut } = useAuth();
 
   useEffect(() => {
-    if (!user) { navigate("/auth"); return; }
+    if (!user) navigate("/auth");
+  }, [user, navigate]);
 
-    const checkStatus = async () => {
-      if (role === 'teacher') {
-        const { data: profile } = await supabase.from('teacher_profiles').select('is_approved').eq('teacher_id', user.id).single();
-        if (!profile || profile.is_approved !== true) {
-          navigate("/pending-approval");
-          return;
-        }
-        const { data: assignments } = await supabase.from('teacher_assignments').select('*').eq('teacher_id', user.id);
-        setTeacherAssignments(assignments || []);
-      }
-      setLoading(false);
-    };
-    checkStatus();
-  }, [user, role, navigate]);
-
-  const handleSignOut = async () => { await signOut(); navigate("/"); };
-
-  if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
-
-  // واجهة المعلم
-  if (role === 'teacher') {
-    return (
-      <div className="min-h-screen bg-muted/30 pb-20 font-cairo" dir="rtl">
-        <header className="bg-card p-4 shadow-sm flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded-full"><User className="text-primary h-6 w-6" /></div>
-            <div>
-              <h1 className="text-xl font-bold">لوحة المعلم</h1>
-              <p className="text-sm text-muted-foreground">{user?.user_metadata.full_name}</p>
-            </div>
-          </div>
-          <Button variant="ghost" onClick={handleSignOut}><LogOut className="h-5 w-5 ml-1" /> خروج</Button>
-        </header>
-
-        <main className="container mx-auto px-4 space-y-6">
-          <h2 className="text-lg font-bold mb-4">موادك الدراسية</h2>
-          {teacherAssignments.length === 0 ? (
-            <p className="text-muted-foreground text-center">لا توجد مواد مسندة إليك.</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {teacherAssignments.map((assignment, index) => {
-                const conf = SUBJECTS_CONFIG[assignment.subject_id] || { name: assignment.subject_id, color: "from-gray-500 to-gray-700" };
-                const grade = assignment.grade === 'first' ? 'الأول' : assignment.grade === 'second' ? 'الثاني' : 'الثالث';
-                const stage = assignment.stage === 'secondary' ? 'ثانوي' : 'إعدادي';
-                
-                return (
-                  <Card key={index} className="overflow-hidden hover:shadow-lg transition-all cursor-pointer border-0"
-                    onClick={() => navigate(`/subject/${assignment.subject_id}?grade=${assignment.grade}&stage=${assignment.stage}&section=${assignment.section || ''}`)}>
-                    <div className={`h-24 bg-gradient-to-r ${conf.color} p-4 flex justify-between items-center text-white`}>
-                      <div>
-                        <h3 className="text-xl font-bold">{conf.name}</h3>
-                        <p className="text-sm opacity-90">الصف {grade} {stage}</p>
-                      </div>
-                      <BookOpen className="h-8 w-8 opacity-80" />
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </main>
-        <MobileNav />
-      </div>
-    );
-  }
-
-  // واجهة الطالب (عاد الشريط السفلي والمواد)
   return (
     <div className="min-h-screen bg-muted/30 pb-20 font-cairo" dir="rtl">
        <header className="bg-card p-4 shadow-sm flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-primary">أزهاريون</h1>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleSignOut}><LogOut className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => { signOut(); navigate("/"); }}><LogOut className="h-4 w-4" /></Button>
        </header>
 
        <main className="container mx-auto px-4">
@@ -160,8 +66,28 @@ const Dashboard = () => {
             ))}
          </div>
        </main>
-       
-       <MobileNav />
+
+       {/* الشريط السفلي القديم */}
+       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-6 md:hidden z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="flex justify-around items-center">
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-primary">
+            <Home className="h-6 w-6" />
+            <span className="text-[10px] font-bold">الرئيسية</span>
+            </Link>
+            <Link to="/subjects" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+            <Library className="h-6 w-6" />
+            <span className="text-[10px] font-medium">المواد</span>
+            </Link>
+            <Link to="/ai-chat" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+            <MessageSquare className="h-6 w-6" />
+            <span className="text-[10px] font-medium">مساعدك</span>
+            </Link>
+            <Link to="/settings" className="flex flex-col items-center gap-1 text-gray-400 hover:text-primary transition-colors">
+            <User className="h-6 w-6" />
+            <span className="text-[10px] font-medium">حسابي</span>
+            </Link>
+        </div>
+       </div>
     </div>
   );
 };
