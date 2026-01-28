@@ -16,8 +16,7 @@ import {
   ChevronLeft,
   Loader2,
   Check,
-  Briefcase,
-  GraduationCap
+  Briefcase
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 
 type AuthMode = "login" | "register" | "register-teacher";
 
-// بيانات المواد الدراسية للاختيار
+// قائمة المواد
 const TEACHER_SUBJECTS = [
   { id: "arabic", name: "مواد عربية" },
   { id: "religious", name: "مواد شرعية" },
@@ -71,8 +70,6 @@ const Auth = () => {
   // Teacher Assignments Logic
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedStage, setSelectedStage] = useState<"preparatory" | "secondary" | "">("");
-  
-  // تخزين التخصصات المختارة: { subject, stage, grade }
   const [assignments, setAssignments] = useState<Array<{subject: string, stage: string, grade: string}>>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,7 +102,6 @@ const Auth = () => {
           navigate("/dashboard");
         }
       } else if (mode === "register-teacher") {
-        // التحقق من اختيار مادة وصف واحد على الأقل
         if (assignments.length === 0) {
           toast.error("يجب اختيار مادة دراسية واحدة وصف دراسي واحد على الأقل");
           setIsLoading(false);
@@ -119,7 +115,7 @@ const Auth = () => {
           phone,
           schoolName,
           employeeId,
-          assignments: assignments, // إرسال التخصصات
+          assignments: assignments,
         });
         
         if (error) {
@@ -137,31 +133,24 @@ const Auth = () => {
     }
   };
 
-  // وظيفة لإضافة أو إزالة صف دراسي للمعلم
   const toggleAssignment = (subj: string, stg: string, grd: string) => {
     const exists = assignments.some(a => a.subject === subj && a.stage === stg && a.grade === grd);
-    
     if (exists) {
-      // إزالة
       setAssignments(prev => prev.filter(a => !(a.subject === subj && a.stage === stg && a.grade === grd)));
     } else {
-      // إضافة
       setAssignments(prev => [...prev, { subject: subj, stage: stg, grade: grd }]);
     }
   };
 
-  // التحقق هل الصف محدد أم لا
   const isAssigned = (subj: string, stg: string, grd: string) => {
     return assignments.some(a => a.subject === subj && a.stage === stg && a.grade === grd);
   };
 
-  // الحصول على اسم المادة بالعربي
   const getSubjectName = (id: string) => TEACHER_SUBJECTS.find(s => s.id === id)?.name || id;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
       <div className="w-full max-w-md animate-scale-in">
-        {/* الشعار */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl gradient-azhari shadow-azhari mb-4">
             <BookOpen className="h-8 w-8 text-primary-foreground" />
@@ -185,7 +174,6 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* الحقول المشتركة للتسجيل */}
               {(mode === "register" || mode === "register-teacher") && (
                 <>
                   <div className="space-y-2">
@@ -215,7 +203,6 @@ const Auth = () => {
                 </>
               )}
 
-              {/* البريد وكلمة المرور (مشترك للكل) */}
               <div className="space-y-2">
                 <Label htmlFor="email">البريد الإلكتروني</Label>
                 <div className="relative">
@@ -259,7 +246,6 @@ const Auth = () => {
                 </div>
               </div>
 
-              {/* حقول الطالب فقط */}
               {mode === "register" && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -304,7 +290,6 @@ const Auth = () => {
                 </div>
               )}
 
-              {/* حقول المعلم الجديدة (المهمة) */}
               {mode === "register-teacher" && (
                 <div className="space-y-4 border rounded-lg p-4 bg-muted/20">
                   <div className="space-y-2">
@@ -313,7 +298,6 @@ const Auth = () => {
                       بيانات التدريس
                     </Label>
                     
-                    {/* 1. اختيار المادة */}
                     <Select value={selectedSubject} onValueChange={setSelectedSubject}>
                       <SelectTrigger className="bg-background">
                         <SelectValue placeholder="اختر المادة التي تدرسها" />
@@ -326,7 +310,6 @@ const Auth = () => {
                     </Select>
                   </div>
 
-                  {/* 2. اختيار المرحلة (يظهر فقط بعد اختيار المادة) */}
                   {selectedSubject && (
                     <div className="space-y-2 animate-slide-up">
                       <Label className="text-xs text-muted-foreground">اختر المرحلة</Label>
@@ -353,7 +336,6 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* 3. اختيار الصفوف (Checkboxes) */}
                   {selectedStage && (
                     <div className="space-y-3 animate-slide-up bg-background p-3 rounded-md border">
                       <Label className="text-xs font-bold block mb-2">
@@ -380,7 +362,6 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* عرض الملخص (ما تم اختياره) */}
                   {assignments.length > 0 && (
                     <div className="space-y-2 pt-2 border-t">
                       <Label className="text-xs text-muted-foreground">التخصصات المختارة:</Label>
@@ -453,7 +434,6 @@ const Auth = () => {
           </CardContent>
         </Card>
 
-        {/* زر العودة */}
         <div className="mt-8 text-center">
           <Link
             to="/"
