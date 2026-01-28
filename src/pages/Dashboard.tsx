@@ -5,13 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  BookOpen, ChevronLeft, User, LogOut, Loader2, Home, Library, MessageSquare, Menu
+  BookOpen, User, LogOut, Loader2, Home, Library, MessageSquare
 } from "lucide-react";
 
-// مكون الشريط السفلي (استعادة الشريط المفقود)
+// الشريط السفلي (تمت إعادته)
 const MobileNav = () => {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-6 md:hidden z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-6 md:hidden z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
       <div className="flex justify-around items-center">
         <Link to="/dashboard" className="flex flex-col items-center gap-1 text-primary">
           <Home className="h-6 w-6" />
@@ -34,7 +34,6 @@ const MobileNav = () => {
   );
 };
 
-// تعريف المواد والألوان
 const SUBJECTS_CONFIG: any = {
   arabic: { name: "لغة عربية", color: "from-green-500 to-emerald-700" },
   religious: { name: "مواد شرعية", color: "from-amber-500 to-orange-700" },
@@ -80,7 +79,7 @@ const Dashboard = () => {
 
   if (loading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
-  // --- واجهة المعلم ---
+  // واجهة المعلم
   if (role === 'teacher') {
     return (
       <div className="min-h-screen bg-muted/30 pb-20 font-cairo" dir="rtl">
@@ -127,12 +126,11 @@ const Dashboard = () => {
     );
   }
 
-  // --- واجهة الطالب (استعادة عرض المواد) ---
+  // واجهة الطالب (عاد الشريط السفلي والمواد)
   return (
     <div className="min-h-screen bg-muted/30 pb-20 font-cairo" dir="rtl">
        <header className="bg-card p-4 shadow-sm flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
-            <img src="/lovable-uploads/logo.png" alt="Logo" className="h-8 w-8" onError={(e) => e.currentTarget.style.display='none'} />
             <h1 className="text-xl font-bold text-primary">أزهاريون</h1>
           </div>
           <Button variant="ghost" size="sm" onClick={handleSignOut}><LogOut className="h-4 w-4" /></Button>
