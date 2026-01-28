@@ -24,7 +24,6 @@ import { Badge } from "@/components/ui/badge";
 
 type AuthMode = "login" | "register" | "register-teacher";
 
-// قائمة المواد (للمعلم فقط)
 const TEACHER_SUBJECTS = [
   { id: "arabic", name: "مواد عربية" },
   { id: "religious", name: "مواد شرعية" },
@@ -46,7 +45,6 @@ const Auth = () => {
   const navigate = useNavigate();
   const { signIn, signUp, signUpTeacher } = useAuth();
   
-  // نفس نظام التنقل القديم
   const [mode, setMode] = useState<AuthMode>(
     (searchParams.get("mode") as AuthMode) || "login"
   );
@@ -54,20 +52,15 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // States
+  // حقول البيانات
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState(""); // حقل تأكيد كلمة المرور
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState(""); // تمت الإضافة كما طلبت
+  const [username, setUsername] = useState(""); // اسم المستخدم (اختياري)
+  const [phone, setPhone] = useState("");
 
-  // Student specific
-  const [stage, setStage] = useState("");
-  const [grade, setGrade] = useState("");
-  const [section, setSection] = useState("");
-
-  // Teacher specific (New Logic inside Old Design)
-  const [schoolName, setSchoolName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
+  // حقول المعلم فقط
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedStage, setSelectedStage] = useState<"preparatory" | "secondary" | "">("");
   const [assignments, setAssignments] = useState<Array<{subject: string, stage: string, grade: string}>>([]);
@@ -85,22 +78,27 @@ const Auth = () => {
           navigate("/dashboard");
         }
       } else if (mode === "register") {
+        // التحقق من تطابق كلمة المرور
+        if (password !== confirmPassword) {
+          toast.error("كلمة المرور غير متطابقة");
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await signUp({
           email,
           password,
           fullName,
           phone,
-          stage,
-          grade,
-          section,
+          username, // إرسال اسم المستخدم
+          // تم إزالة المرحلة والصف من هنا كما طلبت
         });
         if (error) toast.error(error);
         else {
           toast.success("تم إنشاء الحساب بنجاح");
-          navigate("/dashboard");
+          navigate("/dashboard"); // سيقوم الداشبورد بتوجيهه لاختيار المرحلة لاحقاً
         }
       } else if (mode === "register-teacher") {
-        // التحقق من اختيار التخصصات
         if (assignments.length === 0) {
           toast.error("يجب اختيار مادة وصف دراسي واحد على الأقل");
           setIsLoading(false);
@@ -112,8 +110,6 @@ const Auth = () => {
           password,
           fullName,
           phone,
-          schoolName,
-          employeeId,
           assignments,
         });
         
@@ -130,7 +126,7 @@ const Auth = () => {
     }
   };
 
-  // Helper functions for teacher selection
+  // دوال مساعدة للمعلم
   const toggleAssignment = (subj: string, stg: string, grd: string) => {
     const exists = assignments.some(a => a.subject === subj && a.stage === stg && a.grade === grd);
     if (exists) {
@@ -150,7 +146,7 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
       <div className="w-full max-w-md animate-scale-in">
         
-        {/* الشعار القديم - لم يتم تغييره */}
+        {/* الشعار */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl gradient-azhari shadow-azhari mb-4">
             <BookOpen className="h-8 w-8 text-primary-foreground" />
@@ -161,30 +157,30 @@ const Auth = () => {
 
         <Card className="border-border shadow-lg bg-card/95 backdrop-blur">
           <CardHeader>
-            <CardTitle className="text-xl text-center">
+            <CardTitle className="text-xl text-center font-bold text-primary">
               {mode === "login" && "تسجيل الدخول"}
               {mode === "register" && "إنشاء حساب طالب"}
               {mode === "register-teacher" && "انضم كمعلم"}
             </CardTitle>
-            <CardDescription className="text-center">
-              {mode === "login" && "أهلاً بك مجدداً في رحلتك التعليمية"}
-              {mode === "register" && "ابدأ رحلة التفوق مع أزهاريون"}
+            <CardDescription className="text-center text-sm">
+              {mode === "login" && "أدخل بياناتك للمتابعة"}
+              {mode === "register" && "أنشئ حسابك وابدأ رحلتك التعليمية"}
               {mode === "register-teacher" && "شارك في بناء مستقبل التعليم الأزهري"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               
-              {/* الحقول المشتركة للتسجيل (الاسم والهاتف) */}
-              {(mode === "register" || mode === "register-teacher") && (
+              {/* --- تسجيل طالب جديد --- */}
+              {mode === "register" && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">الاسم بالكامل</Label>
+                    <Label htmlFor="fullName">الاسم الكامل</Label>
                     <div className="relative">
                       <User className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="fullName"
-                        placeholder="اكتب اسمك رباعي"
+                        placeholder="أدخل اسمك الكامل"
                         className="pr-9"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
@@ -192,7 +188,33 @@ const Auth = () => {
                       />
                     </div>
                   </div>
-                  {/* تمت إضافة الهاتف هنا بناء على طلبك */}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="username">اسم المستخدم (اختياري)</Label>
+                    <Input
+                      id="username"
+                      placeholder="اختر اسم مستخدم"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <div className="relative">
+                      <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="name@example.com"
+                        className="pr-9"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="phone">رقم الهاتف</Label>
                     <div className="relative">
@@ -207,201 +229,205 @@ const Auth = () => {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">كلمة المرور</Label>
+                    <div className="relative">
+                      <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="pr-9 pl-9"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute left-3 top-3 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">تأكيد كلمة المرور</Label>
+                    <div className="relative">
+                      <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="••••••••"
+                        className="pr-9"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
                 </>
               )}
 
-              {/* البريد وكلمة المرور (موجودة في الكل) */}
-              <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
-                <div className="relative">
-                  <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="example@azhar.edu.eg"
-                    className="pr-9"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <div className="relative">
-                  <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    className="pr-9 pl-9"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-3 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* حقول الطالب فقط (نفس القديم) */}
-              {mode === "register" && (
-                <div className="grid grid-cols-2 gap-4">
+              {/* --- تسجيل الدخول --- */}
+              {mode === "login" && (
+                <>
                   <div className="space-y-2">
-                    <Label>المرحلة</Label>
-                    <Select onValueChange={setStage} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر المرحلة" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="preparatory">الإعدادية</SelectItem>
-                        <SelectItem value="secondary">الثانوية</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="email">البريد الإلكتروني أو رقم الهاتف</Label>
+                    <div className="relative">
+                      <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        placeholder="example@azhar.edu.eg"
+                        className="pr-9"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">كلمة المرور</Label>
+                    <div className="relative">
+                      <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        className="pr-9 pl-9"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute left-3 top-3 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* --- تسجيل معلم (بيانات + تخصصات) --- */}
+              {mode === "register-teacher" && (
+                <>
+                  <div className="space-y-2">
+                    <Label>الاسم بالكامل</Label>
+                    <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="الاسم رباعي" />
                   </div>
                   <div className="space-y-2">
-                    <Label>الصفوف</Label>
-                    <Select onValueChange={setGrade} required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر الصف" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="first">الصف الأول</SelectItem>
-                        <SelectItem value="second">الصف الثاني</SelectItem>
-                        <SelectItem value="third">الصف الثالث</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>رقم الهاتف</Label>
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} required placeholder="01xxxxxxxxx" />
                   </div>
-                  {stage === "secondary" && (
-                    <div className="col-span-2 space-y-2 animate-fade-in">
-                      <Label>القسم</Label>
-                      <Select onValueChange={setSection} required>
-                        <SelectTrigger>
-                          <SelectValue placeholder="اختر القسم (علمي / أدبي)" />
-                        </SelectTrigger>
+                  <div className="space-y-2">
+                    <Label>البريد الإلكتروني</Label>
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>كلمة المرور</Label>
+                    <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="••••••••" />
+                  </div>
+
+                  {/* اختيار التخصصات */}
+                  <div className="space-y-4 pt-2 border-t mt-2 bg-muted/10 p-2 rounded">
+                    <Label className="font-bold text-primary">تخصص التدريس</Label>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-xs">المادة</Label>
+                      <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                        <SelectTrigger><SelectValue placeholder="اختر المادة" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="scientific">علمي</SelectItem>
-                          <SelectItem value="literary">أدبي</SelectItem>
+                          {TEACHER_SUBJECTS.map((sub) => (
+                            <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
-                </div>
-              )}
 
-              {/* حقول المعلم (التحديث الجديد داخل التصميم القديم) */}
-              {mode === "register-teacher" && (
-                <div className="space-y-4 pt-2 border-t mt-2">
-                  <div className="space-y-2">
-                    <Label>المادة التي تدرسها</Label>
-                    <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="اختر المادة" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TEACHER_SUBJECTS.map((sub) => (
-                          <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedSubject && (
-                    <div className="space-y-2 animate-fade-in">
-                      <Label>المرحلة</Label>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant={selectedStage === "preparatory" ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setSelectedStage("preparatory")}
-                        >
-                          الإعدادية
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={selectedStage === "secondary" ? "default" : "outline"}
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => setSelectedStage("secondary")}
-                        >
-                          الثانوية
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedStage && (
-                    <div className="space-y-2 animate-fade-in bg-muted/20 p-3 rounded-md border">
-                      <Label className="text-xs mb-2 block">حدد الصفوف:</Label>
-                      {["first", "second", "third"].map((grd) => (
-                        <div key={grd} className="flex items-center space-x-2 space-x-reverse mb-1">
-                          <Checkbox 
-                            id={`grade-${grd}`} 
-                            checked={isAssigned(selectedSubject, selectedStage, grd)}
-                            onCheckedChange={() => toggleAssignment(selectedSubject, selectedStage, grd)}
-                          />
-                          <label htmlFor={`grade-${grd}`} className="text-sm cursor-pointer select-none">
-                            {grd === "first" ? "الصف الأول" : grd === "second" ? "الصف الثاني" : "الصف الثالث"}
-                          </label>
+                    {selectedSubject && (
+                      <div className="space-y-2 animate-fade-in">
+                        <Label className="text-xs">المرحلة</Label>
+                        <div className="flex gap-2">
+                          <Button type="button" variant={selectedStage === "preparatory" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setSelectedStage("preparatory")}>الإعدادية</Button>
+                          <Button type="button" variant={selectedStage === "secondary" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setSelectedStage("secondary")}>الثانوية</Button>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    )}
 
-                  {assignments.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {assignments.map((a, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
-                          {getSubjectName(a.subject)} ({a.grade === "first" ? "1" : a.grade === "second" ? "2" : "3"})
-                          <span className="mr-1 cursor-pointer hover:text-red-500" onClick={() => toggleAssignment(a.subject, a.stage, a.grade)}>×</span>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                    {selectedStage && (
+                      <div className="space-y-2 animate-fade-in">
+                        <Label className="text-xs">الصفوف</Label>
+                        {["first", "second", "third"].map((grd) => (
+                          <div key={grd} className="flex items-center space-x-2 space-x-reverse">
+                            <Checkbox 
+                              id={`grade-${grd}`} 
+                              checked={isAssigned(selectedSubject, selectedStage, grd)}
+                              onCheckedChange={() => toggleAssignment(selectedSubject, selectedStage, grd)}
+                            />
+                            <label htmlFor={`grade-${grd}`} className="text-sm cursor-pointer select-none">
+                              {grd === "first" ? "الصف الأول" : grd === "second" ? "الصف الثاني" : "الصف الثالث"}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {assignments.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {assignments.map((a, idx) => (
+                          <Badge key={idx} variant="secondary" className="text-xs">
+                            {getSubjectName(a.subject)} 
+                            <span className="mr-1 cursor-pointer hover:text-red-500" onClick={() => toggleAssignment(a.subject, a.stage, a.grade)}>×</span>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
-              <Button className="w-full" size="lg" disabled={isLoading}>
+              {/* الأزرار الرئيسية */}
+              <Button className="w-full mt-4" size="lg" disabled={isLoading}>
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                {mode === "login" && "دخول"}
-                {mode === "register" && "إنشاء حساب"}
-                {mode === "register-teacher" && "إرسال الطلب"}
+                {mode === "login" && "تسجيل الدخول"}
+                {mode === "register" && "إنشاء الحساب"}
+                {mode === "register-teacher" && "إرسال طلب الانضمام"}
               </Button>
 
-              {/* الروابط القديمة للتبديل بين الصفحات */}
+              {/* زر جوجل والقسم السفلي */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">أو</span>
+                </div>
+              </div>
+
+              <Button variant="outline" type="button" disabled className="w-full">
+                التسجيل بواسطة Google (قريباً)
+              </Button>
+
+              {/* روابط التبديل (القديمة) */}
               <div className="space-y-2 mt-4 text-center text-sm">
                 {mode === "login" && (
                   <>
                     <p className="text-muted-foreground">
                       ليس لديك حساب؟{" "}
-                      <button
-                        onClick={() => setMode("register")}
-                        className="text-primary hover:underline font-medium"
-                        type="button"
-                      >
+                      <button onClick={() => setMode("register")} className="text-primary hover:underline font-medium" type="button">
                         سجّل كطالب
                       </button>
                     </p>
                     <p className="text-muted-foreground">
-                      أو{" "}
-                      <button
-                        onClick={() => setMode("register-teacher")}
-                        className="text-gold hover:underline font-medium"
-                        type="button"
-                      >
-                        انضم كمعلم
+                      أنت معلم؟{" "}
+                      <button onClick={() => setMode("register-teacher")} className="text-gold hover:underline font-medium" type="button">
+                        سجّل كمعلم
                       </button>
                     </p>
                   </>
@@ -410,11 +436,7 @@ const Auth = () => {
                 {(mode === "register" || mode === "register-teacher") && (
                   <p className="text-muted-foreground">
                     لديك حساب بالفعل؟{" "}
-                    <button
-                      onClick={() => setMode("login")}
-                      className="text-primary hover:underline font-medium"
-                      type="button"
-                    >
+                    <button onClick={() => setMode("login")} className="text-primary hover:underline font-medium" type="button">
                       تسجيل الدخول
                     </button>
                   </p>
@@ -423,25 +445,8 @@ const Auth = () => {
                 {mode === "register" && (
                   <p className="text-muted-foreground">
                     أنت معلم؟{" "}
-                    <button
-                      onClick={() => setMode("register-teacher")}
-                      className="text-gold hover:underline font-medium"
-                      type="button"
-                    >
+                    <button onClick={() => setMode("register-teacher")} className="text-gold hover:underline font-medium" type="button">
                       سجّل كمعلم
-                    </button>
-                  </p>
-                )}
-
-                {mode === "register-teacher" && (
-                  <p className="text-muted-foreground">
-                    أنت طالب؟{" "}
-                    <button
-                      onClick={() => setMode("register")}
-                      className="text-primary hover:underline font-medium"
-                      type="button"
-                    >
-                      سجّل كطالب
                     </button>
                   </p>
                 )}
@@ -451,10 +456,7 @@ const Auth = () => {
         </Card>
 
         <div className="mt-8 text-center">
-          <Link
-            to="/"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
+          <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
             <ChevronLeft className="h-4 w-4 ml-1" />
             العودة للصفحة الرئيسية
           </Link>
