@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/select";
 import { Building, IdCard, Phone, BookOpen } from "lucide-react";
 
+/* ===================== */
+/* البيانات الثابتة */
+/* ===================== */
+
 const PREPARATORY_GRADES = [
   "الصف الأول الإعدادي",
   "الصف الثاني الإعدادي",
@@ -25,9 +29,9 @@ const SECONDARY_GRADES = [
 const PREPARATORY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
+  "رياضيات",
   "علوم",
   "دراسات",
-  "رياضيات",
   "لغة إنجليزية",
 ];
 
@@ -44,7 +48,11 @@ const SECONDARY_SUBJECTS = [
   "فرنساوي",
 ];
 
-interface TeacherFormData {
+/* ===================== */
+/* Types */
+/* ===================== */
+
+export interface TeacherFormData {
   school: string;
   employeeId: string;
   phone: string;
@@ -58,6 +66,10 @@ interface Props {
   onChange: (data: Partial<TeacherFormData>) => void;
   errors: Record<string, string>;
 }
+
+/* ===================== */
+/* Component */
+/* ===================== */
 
 const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   const grades =
@@ -83,7 +95,8 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+
       {/* جهة العمل */}
       <div>
         <Label>جهة العمل / المدرسة</Label>
@@ -95,6 +108,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             onChange={(e) => onChange({ school: e.target.value })}
           />
         </div>
+        {errors.school && <p className="text-sm text-red-500">{errors.school}</p>}
       </div>
 
       {/* الرقم الوظيفي */}
@@ -108,9 +122,10 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             onChange={(e) => onChange({ employeeId: e.target.value })}
           />
         </div>
+        {errors.employeeId && <p className="text-sm text-red-500">{errors.employeeId}</p>}
       </div>
 
-      {/* الهاتف */}
+      {/* رقم الهاتف */}
       <div>
         <Label>رقم الهاتف</Label>
         <div className="relative">
@@ -121,6 +136,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             onChange={(e) => onChange({ phone: e.target.value })}
           />
         </div>
+        {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
       </div>
 
       {/* المرحلة */}
@@ -144,13 +160,14 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
             <SelectItem value="secondary">ثانوي</SelectItem>
           </SelectContent>
         </Select>
+        {errors.stage && <p className="text-sm text-red-500">{errors.stage}</p>}
       </div>
 
       {/* الصفوف */}
       {formData.stage && (
         <div>
-          <Label>الصفوف</Label>
-          <div className="flex flex-wrap gap-2">
+          <Label>الصفوف التي تدرّسها</Label>
+          <div className="flex flex-wrap gap-2 mt-2">
             {grades.map((g) => (
               <label
                 key={g}
@@ -168,13 +185,14 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
               </label>
             ))}
           </div>
+          {errors.grades && <p className="text-sm text-red-500">{errors.grades}</p>}
         </div>
       )}
 
       {/* المادة */}
       {formData.grades.length > 0 && (
         <div>
-          <Label>المادة</Label>
+          <Label>المادة التي تدرّسها</Label>
           <div className="relative">
             <BookOpen className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
             <Select
@@ -193,8 +211,10 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
               </SelectContent>
             </Select>
           </div>
+          {errors.subject && <p className="text-sm text-red-500">{errors.subject}</p>}
         </div>
       )}
+
     </div>
   );
 };
