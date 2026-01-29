@@ -1,21 +1,12 @@
-// src/pages/TeacherRegister.tsx
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/manualClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import TeacherRegistrationForm from "@/components/auth/TeacherRegistrationForm";
+import TeacherRegistrationForm, {
+  TeacherFormData,
+} from "@/components/auth/TeacherRegistrationForm";
 import { useAuth } from "@/hooks/useAuth";
-
-interface TeacherFormData {
-  school: string;
-  employeeId: string;
-  phone: string;
-  stage: "preparatory" | "secondary" | "";
-  grades: string[];
-  subject: string;
-}
 
 const initialForm: TeacherFormData = {
   school: "",
@@ -27,8 +18,8 @@ const initialForm: TeacherFormData = {
 };
 
 const TeacherRegister = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState<TeacherFormData>(initialForm);
   const [loading, setLoading] = useState(false);
@@ -51,7 +42,7 @@ const TeacherRegister = () => {
   const handleSubmit = async () => {
     if (!user) {
       toast({
-        title: "يجب تسجيل الدخول أولاً",
+        title: "يجب تسجيل الدخول أولًا",
         variant: "destructive",
       });
       return;
@@ -75,17 +66,16 @@ const TeacherRegister = () => {
     setLoading(false);
 
     if (error) {
-      console.error(error);
       toast({
-        title: "حدث خطأ",
-        description: "لم يتم إرسال الطلب",
+        title: "خطأ",
+        description: "فشل إرسال الطلب",
         variant: "destructive",
       });
       return;
     }
 
     toast({
-      title: "تم إرسال الطلب بنجاح",
+      title: "تم إرسال طلبك بنجاح",
       description: "سيتم مراجعته من الإدارة",
     });
 
@@ -98,15 +88,13 @@ const TeacherRegister = () => {
 
       <TeacherRegistrationForm
         formData={formData}
-        onChange={(data) => setFormData((prev) => ({ ...prev, ...data }))}
+        onChange={(data) =>
+          setFormData((prev) => ({ ...prev, ...data }))
+        }
         errors={errors}
       />
 
-      <Button
-        className="w-full"
-        onClick={handleSubmit}
-        disabled={loading}
-      >
+      <Button className="w-full" onClick={handleSubmit} disabled={loading}>
         {loading ? "جارٍ الإرسال..." : "إرسال الطلب"}
       </Button>
     </div>
