@@ -12,7 +12,7 @@ type TeacherAssignment = {
   subject_id: string;
   subject_name: string;
   stage: "preparatory" | "secondary";
-  grades: string[]; // مثال: ["الأول", "الثاني", "الثالث"]
+  grades: string[];
 };
 
 const TeacherDashboard = () => {
@@ -24,20 +24,12 @@ const TeacherDashboard = () => {
 
   useEffect(() => {
     if (!user) return;
-    loadTeacherAssignment();
-  }, [user]);
+    fetchTeacherAssignment();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
-  const loadTeacherAssignment = async () => {
+  const fetchTeacherAssignment = async () => {
     setLoading(true);
-
-    /**
-     * جدول متوقع:
-     * teacher_assignments
-     * - teacher_id
-     * - subject_id
-     * - stage (preparatory | secondary)
-     * - grades (array)
-     */
 
     const { data, error } = await supabase
       .from("teacher_assignments")
@@ -52,19 +44,28 @@ const TeacherDashboard = () => {
       `
       )
       .eq("teacher_id", user!.id)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       console.error("Error loading teacher assignment:", error);
       setAssignment(null);
-    } else {
-      setAssignment({
-        subject_id: data.subject_id,
-        subject_name: data.subjects.name,
-        stage: data.stage,
-        grades: data.grades || [],
-      });
+      setLoading(false);
+      return;
     }
+
+    if (!data) {
+      setAssignment(null);
+      setLoading(false);
+      return;
+    }
+
+    setAssignment({
+      subject_id: data.subject_id,
+      subject_name: data.subjects?.name ?? "غير محدد",
+      stage: data.stage,
+      grades: Array.isArray(data.grades) ? data.grades : [],
+    });
 
     setLoading(false);
   };
@@ -87,8 +88,8 @@ const TeacherDashboard = () => {
 
   if (!assignment) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <p className="text-muted-foreground text-lg">
           لم يتم ربطك بأي مادة حتى الآن.
         </p>
       </div>
@@ -114,18 +115,21 @@ const TeacherDashboard = () => {
 
           <Button variant="ghost" onClick={handleLogout} className="gap-2">
             <LogOut className="h-4 w-4" />
-            خروج
+            تسجيل الخروج
           </Button>
         </div>
       </header>
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8 space-y-6">
-        {/* Info Card */}
+        {/* Info */}
         <Card>
           <CardContent className="p-6 space-y-2">
             <p className="text-lg font-semibold">
-              المادة: <span className="text-primary">{assignment.subject_name}</span>
+              المادة:{" "}
+              <span className="text-primary">
+                {assignment.subject_name}
+              </span>
             </p>
             <p className="text-sm text-muted-foreground">
               المرحلة:{" "}
@@ -136,33 +140,41 @@ const TeacherDashboard = () => {
 
         {/* Grades */}
         <div>
-          <h2 className="text-xl font-bold mb-4">الصفوف التي تدرسها</h2>
+          <h2 className="text-xl font-bold mb-4">
+            الصفوف التي تدرّسها
+          </h2>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {assignment.grades.map((grade) => (
-              <Card
-                key={grade}
-                className="hover:shadow-md transition cursor-pointer"
-              >
-                <CardContent className="p-5 space-y-4">
-                  <h3 className="text-lg font-semibold text-center">
-                    الصف {grade}
-                  </h3>
+          {assignment.grades.length === 0 ? (
+            <p className="text-muted-foreground">
+              لم يتم تحديد صفوف لك بعد.
+            </p>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {assignment.grades.map((grade) => (
+                <Card
+                  key={grade}
+                  className="hover:shadow-md transition"
+                >
+                  <CardContent className="p-5 space-y-4">
+                    <h3 className="text-lg font-semibold text-center">
+                      الصف {grade}
+                    </h3>
 
-                  <Button
-                    className="w-full"
-                    onClick={() =>
-                      navigate(
-                        `/teacher/subject/${assignment.subject_id}?grade=${grade}&stage=${assignment.stage}`
-                      )
-                    }
-                  >
-                    إدارة المحتوى
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                    <Button
+                      className="w-full"
+                      onClick={() =>
+                        navigate(
+                          `/teacher/subject/${assignment.subject_id}?grade=${grade}&stage=${assignment.stage}`
+                        )
+                      }
+                    >
+                      إدارة المحتوى
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </div>
