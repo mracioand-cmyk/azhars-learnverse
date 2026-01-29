@@ -6,13 +6,18 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-/* Public Pages */
+/* ===================== */
+/* 🌍 Public Pages */
+/* ===================== */
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import TeacherRegister from "./pages/TeacherRegister";
 
-/* Student Pages */
+/* ===================== */
+/* 🎓 Student Pages */
+/* ===================== */
 import Dashboard from "./pages/Dashboard";
 import Subjects from "./pages/Subjects";
 import SubjectPage from "./pages/SubjectPage";
@@ -21,11 +26,15 @@ import AiChat from "./pages/AiChat";
 import StudentSupportPage from "./pages/student/SupportPage";
 import StudentAboutPage from "./pages/student/AboutPage";
 
-/* Teacher Pages */
+/* ===================== */
+/* 👨‍🏫 Teacher Pages */
+/* ===================== */
 import TeacherDashboard from "./pages/TeacherDashboard";
 import PendingApproval from "./pages/PendingApproval";
 
-/* Admin Pages */
+/* ===================== */
+/* 🛠 Admin Pages */
+/* ===================== */
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminStudentsPage from "./pages/admin/StudentsPage";
 import AdminTeachersPage from "./pages/admin/TeachersPage";
@@ -59,6 +68,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/about" element={<About />} />
+            <Route path="/teacher-register" element={<TeacherRegister />} />
 
             {/* ===================== */}
             {/* 🎓 Student Routes */}
