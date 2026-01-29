@@ -5,19 +5,28 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
+
+/* Public Pages */
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import Subjects from "./pages/Subjects";
-import SubjectPage from "./pages/SubjectPage";
-import PendingApproval from "./pages/PendingApproval";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
-import AiChat from "./pages/AiChat";
-import SubjectAiChat from "./pages/SubjectAiChat";
 
-// Admin pages
+/* Student Pages */
+import Dashboard from "./pages/Dashboard";
+import Subjects from "./pages/Subjects";
+import SubjectPage from "./pages/SubjectPage";
+import SubjectAiChat from "./pages/SubjectAiChat";
+import AiChat from "./pages/AiChat";
+import StudentSupportPage from "./pages/student/SupportPage";
+import StudentAboutPage from "./pages/student/AboutPage";
+
+/* Teacher Pages */
+import TeacherDashboard from "./pages/TeacherDashboard";
+import PendingApproval from "./pages/PendingApproval";
+
+/* Admin Pages */
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminStudentsPage from "./pages/admin/StudentsPage";
 import AdminTeachersPage from "./pages/admin/TeachersPage";
 import AdminContentPage from "./pages/admin/ContentPage";
@@ -33,10 +42,6 @@ import AdminUploadSubjects from "./pages/admin/AdminUploadSubjects";
 import AdminUploadSubjectContent from "./pages/admin/AdminUploadSubjectContent";
 import AdminSubscriptionsPage from "./pages/admin/SubscriptionsPage";
 
-// Student Pages
-import StudentSupportPage from "./pages/student/SupportPage";
-import StudentAboutPage from "./pages/student/AboutPage";
-
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -47,12 +52,17 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            {/* Public routes */}
+
+            {/* ===================== */}
+            {/* 🌍 Public Routes */}
+            {/* ===================== */}
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/about" element={<About />} />
-            
-            {/* Protected routes - Student */}
+
+            {/* ===================== */}
+            {/* 🎓 Student Routes */}
+            {/* ===================== */}
             <Route
               path="/dashboard"
               element={
@@ -86,6 +96,14 @@ const App = () => (
               }
             />
             <Route
+              path="/ai-chat"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <AiChat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/support"
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
@@ -98,19 +116,33 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <StudentAboutPage />
-              </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ai-chat"
-              element={
-                <ProtectedRoute allowedRoles={["student", "admin"]}>
-                  <AiChat />
                 </ProtectedRoute>
               }
             />
-            
-            {/* Protected routes - Admin only */}
+
+            {/* ===================== */}
+            {/* 👨‍🏫 Teacher Routes */}
+            {/* ===================== */}
+            <Route
+              path="/teacher"
+              element={
+                <ProtectedRoute allowedRoles={["teacher"]}>
+                  <TeacherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pending-approval"
+              element={
+                <ProtectedRoute requireAuth>
+                  <PendingApproval />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ===================== */}
+            {/* 🛠 Admin Routes */}
+            {/* ===================== */}
             <Route
               path="/admin"
               element={
@@ -160,18 +192,18 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/support"
-              element={
-                <ProtectedRoute allowedRoles={["admin"]}>
-                  <AdminSupportPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/admin/settings"
               element={
                 <ProtectedRoute allowedRoles={["admin"]}>
                   <AdminSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/support"
+              element={
+                <ProtectedRoute allowedRoles={["admin"]}>
+                  <AdminSupportPage />
                 </ProtectedRoute>
               }
             />
@@ -231,19 +263,12 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
-            {/* Protected routes - Pending approval (for teachers) */}
-            <Route
-              path="/pending-approval"
-              element={
-                <ProtectedRoute requireAuth={true}>
-                  <PendingApproval />
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+            {/* ===================== */}
+            {/* ❌ Not Found */}
+            {/* ===================== */}
             <Route path="*" element={<NotFound />} />
+
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
