@@ -268,6 +268,7 @@ export type Database = {
           id: string
           is_banned: boolean | null
           phone: string | null
+          role: string | null
           section: string | null
           stage: string | null
           student_code: string | null
@@ -282,6 +283,7 @@ export type Database = {
           id: string
           is_banned?: boolean | null
           phone?: string | null
+          role?: string | null
           section?: string | null
           stage?: string | null
           student_code?: string | null
@@ -296,6 +298,7 @@ export type Database = {
           id?: string
           is_banned?: boolean | null
           phone?: string | null
+          role?: string | null
           section?: string | null
           stage?: string | null
           student_code?: string | null
@@ -383,6 +386,53 @@ export type Database = {
           welcome_message?: string
         }
         Relationships: []
+      }
+      subscription_requests: {
+        Row: {
+          amount: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          receipt_url: string
+          status: string | null
+          student_id: string | null
+          subject_id: string | null
+          teacher_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          receipt_url: string
+          status?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          receipt_url?: string
+          status?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+          teacher_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_requests_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -491,6 +541,36 @@ export type Database = {
           stage?: string
           teacher_id?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      teacher_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string | null
+          is_approved: boolean | null
+          photo_url: string | null
+          teacher_id: string
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string | null
+          is_approved?: boolean | null
+          photo_url?: string | null
+          teacher_id: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string | null
+          is_approved?: boolean | null
+          photo_url?: string | null
+          teacher_id?: string
+          updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: []
       }

@@ -5,14 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, LogOut, BookOpen } from "lucide-react";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 type TeacherAssignment = {
-  subject_id: string;
-  subject_name: string;
-  stage: "preparatory" | "secondary";
-  grades: string[];
+  stage: string;
+  grade: string;
+  section: string | null;
+  category: string;
 };
 
 const TeacherDashboard = () => {
@@ -20,52 +20,41 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [assignment, setAssignment] = useState<TeacherAssignment | null>(null);
+  const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+  const [teacherName, setTeacherName] = useState("");
 
   useEffect(() => {
     if (!user) return;
-    fetchTeacherAssignment();
+    fetchTeacherData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  const fetchTeacherAssignment = async () => {
+  const fetchTeacherData = async () => {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("teacher_assignments")
-      .select(
-        `
-        subject_id,
-        stage,
-        grades,
-        subjects (
-          name
-        )
-      `
-      )
-      .eq("teacher_id", user!.id)
-      .limit(1)
+    // جلب بيانات المعلم
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user!.id)
       .maybeSingle();
 
+    if (profile) {
+      setTeacherName(profile.full_name);
+    }
+
+    // جلب تخصيصات المعلم
+    const { data, error } = await supabase
+      .from("teacher_assignments")
+      .select("stage, grade, section, category")
+      .eq("teacher_id", user!.id);
+
     if (error) {
-      console.error("Error loading teacher assignment:", error);
-      setAssignment(null);
-      setLoading(false);
-      return;
+      console.error("Error loading teacher assignments:", error);
+      setAssignments([]);
+    } else {
+      setAssignments(data || []);
     }
-
-    if (!data) {
-      setAssignment(null);
-      setLoading(false);
-      return;
-    }
-
-    setAssignment({
-      subject_id: data.subject_id,
-      subject_name: data.subjects?.name ?? "غير محدد",
-      stage: data.stage,
-      grades: Array.isArray(data.grades) ? data.grades : [],
-    });
 
     setLoading(false);
   };
@@ -74,6 +63,22 @@ const TeacherDashboard = () => {
     await signOut();
     navigate("/auth");
   };
+
+  // تجميع الصفوف حسب المادة والمرحلة
+  const groupedAssignments = assignments.reduce((acc, curr) => {
+    const key = `${curr.category}-${curr.stage}`;
+    if (!acc[key]) {
+      acc[key] = {
+        category: curr.category,
+        stage: curr.stage,
+        grades: [],
+      };
+    }
+    if (!acc[key].grades.includes(curr.grade)) {
+      acc[key].grades.push(curr.grade);
+    }
+    return acc;
+  }, {} as Record<string, { category: string; stage: string; grades: string[] }>);
 
   if (loading) {
     return (
@@ -86,12 +91,21 @@ const TeacherDashboard = () => {
     );
   }
 
-  if (!assignment) {
+  if (assignments.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/30">
-        <p className="text-muted-foreground text-lg">
-          لم يتم ربطك بأي مادة حتى الآن.
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 p-4">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <BookOpen className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">لم يتم ربطك بأي مادة حتى الآن</h2>
+          <p className="text-muted-foreground mb-4">
+            انتظر حتى يقوم الأدمن بتعيينك على المواد والصفوف
+          </p>
+          <Button variant="outline" onClick={handleLogout}>
+            تسجيل الخروج
+          </Button>
+        </div>
       </div>
     );
   }
@@ -107,9 +121,7 @@ const TeacherDashboard = () => {
             </div>
             <div>
               <h1 className="font-bold text-lg">لوحة المعلم</h1>
-              <p className="text-sm text-muted-foreground">
-                {assignment.subject_name}
-              </p>
+              <p className="text-sm text-muted-foreground">{teacherName}</p>
             </div>
           </div>
 
@@ -122,60 +134,44 @@ const TeacherDashboard = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-8 space-y-6">
-        {/* Info */}
-        <Card>
-          <CardContent className="p-6 space-y-2">
-            <p className="text-lg font-semibold">
-              المادة:{" "}
-              <span className="text-primary">
-                {assignment.subject_name}
-              </span>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              المرحلة:{" "}
-              {assignment.stage === "secondary" ? "ثانوي" : "إعدادي"}
-            </p>
-          </CardContent>
-        </Card>
+        {/* المواد والصفوف */}
+        {Object.values(groupedAssignments).map((group) => (
+          <Card key={`${group.category}-${group.stage}`}>
+            <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-primary">
+                    {group.category}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    المرحلة: {group.stage === "secondary" ? "ثانوي" : "إعدادي"}
+                  </p>
+                </div>
+              </div>
 
-        {/* Grades */}
-        <div>
-          <h2 className="text-xl font-bold mb-4">
-            الصفوف التي تدرّسها
-          </h2>
-
-          {assignment.grades.length === 0 ? (
-            <p className="text-muted-foreground">
-              لم يتم تحديد صفوف لك بعد.
-            </p>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignment.grades.map((grade) => (
-                <Card
-                  key={grade}
-                  className="hover:shadow-md transition"
-                >
-                  <CardContent className="p-5 space-y-4">
-                    <h3 className="text-lg font-semibold text-center">
-                      الصف {grade}
-                    </h3>
-
-                    <Button
-                      className="w-full"
-                      onClick={() =>
-                        navigate(
-                          `/teacher/subject/${assignment.subject_id}?grade=${grade}&stage=${assignment.stage}`
-                        )
-                      }
-                    >
-                      إدارة المحتوى
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.grades.map((grade) => (
+                  <Card
+                    key={grade}
+                    className="hover:shadow-md transition cursor-pointer"
+                    onClick={() =>
+                      navigate(
+                        `/teacher/subject?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${group.stage}`
+                      )
+                    }
+                  >
+                    <CardContent className="p-4 text-center">
+                      <h3 className="font-semibold">{grade}</h3>
+                      <Button className="w-full mt-3" size="sm">
+                        إدارة المحتوى
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </main>
     </div>
   );

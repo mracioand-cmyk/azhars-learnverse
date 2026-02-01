@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/manualClient";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { Loader2 } from "lucide-react";
 
 type TeacherStatus = "pending" | "approved" | "rejected";
 
@@ -12,7 +13,7 @@ interface Props {
 }
 
 const TeacherProtectedRoute = ({ children }: Props) => {
-  const { user, role, loading } = useAuth();
+  const { user, role, isLoading } = useAuth();
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
 
@@ -57,10 +58,13 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   }, [user, role]);
 
   // أثناء التحميل
-  if (loading || checking) {
+  if (isLoading || checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        جاري التحقق من صلاحيات المعلم...
+      <div className="min-h-screen flex items-center justify-center bg-muted/30">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-muted-foreground">جاري التحقق من صلاحيات المعلم...</p>
+        </div>
       </div>
     );
   }
@@ -87,6 +91,11 @@ const TeacherProtectedRoute = ({ children }: Props) => {
 
   // معلم معتمد
   if (role === "teacher" && teacherStatus === "approved") {
+    return <>{children}</>;
+  }
+
+  // أدمن
+  if (role === "admin") {
     return <>{children}</>;
   }
 
