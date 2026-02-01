@@ -4,6 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -30,6 +39,42 @@ const passwordSchema = z.string()
 const nameSchema = z.string().min(3, "الاسم يجب أن يكون 3 أحرف على الأقل").max(100);
 const phoneSchema = z.string().regex(/^[0-9]{10,15}$/, "رقم الهاتف غير صالح").optional().or(z.literal(""));
 
+// بيانات المراحل والصفوف والمواد
+const PREPARATORY_GRADES = [
+  "الصف الأول الإعدادي",
+  "الصف الثاني الإعدادي",
+  "الصف الثالث الإعدادي",
+];
+
+const SECONDARY_GRADES = [
+  "الصف الأول الثانوي",
+  "الصف الثاني الثانوي",
+  "الصف الثالث الثانوي",
+];
+
+const PREPARATORY_SUBJECTS = [
+  "المواد العربية",
+  "المواد الشرعية",
+  "رياضيات",
+  "لغة إنجليزية",
+];
+
+const SECONDARY_SUBJECTS = [
+  "المواد العربية",
+  "المواد الشرعية",
+  "أحياء",
+  "فيزياء",
+  "كيمياء",
+  "جيولوجيا",
+  "تاريخ",
+  "جغرافيا",
+  "فلسفة",
+  "علم نفس",
+  "رياضيات",
+  "لغة إنجليزية",
+  "لغة فرنسية",
+];
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -51,6 +96,9 @@ const Auth = () => {
     school: "",
     employeeId: "",
     phone: "",
+    stage: "" as "preparatory" | "secondary" | "",
+    grades: [] as string[],
+    subject: "",
   });
 
   // Redirect if already logged in
@@ -138,11 +186,47 @@ const Auth = () => {
           newErrors.phone = phoneResult.error.errors[0].message;
         }
       }
+      if (!formData.stage) {
+        newErrors.stage = "اختر المرحلة التعليمية";
+      }
+      if (formData.grades.length === 0) {
+        newErrors.grades = "اختر صف واحد على الأقل";
+      }
+      if (!formData.subject) {
+        newErrors.subject = "اختر المادة التي تدرّسها";
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
+
+  // Toggle grade selection
+  const toggleGrade = (grade: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      grades: prev.grades.includes(grade)
+        ? prev.grades.filter((g) => g !== grade)
+        : [...prev.grades, grade],
+    }));
+    if (errors.grades) {
+      setErrors((prev) => ({ ...prev, grades: "" }));
+    }
+  };
+
+  // Get available grades based on stage
+  const availableGrades = formData.stage === "preparatory" 
+    ? PREPARATORY_GRADES 
+    : formData.stage === "secondary" 
+    ? SECONDARY_GRADES 
+    : [];
+
+  // Get available subjects based on stage
+  const availableSubjects = formData.stage === "preparatory"
+    ? PREPARATORY_SUBJECTS
+    : formData.stage === "secondary"
+    ? SECONDARY_SUBJECTS
+    : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,6 +284,9 @@ const Auth = () => {
           phone: formData.phone || undefined,
           schoolName: formData.school,
           employeeId: formData.employeeId,
+          stage: formData.stage as "preparatory" | "secondary",
+          grades: formData.grades,
+          subject: formData.subject,
         });
         
         if (error) {
@@ -216,7 +303,7 @@ const Auth = () => {
           navigate("/pending-approval");
         }
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "حدث خطأ",
         description: "يرجى المحاولة مرة أخرى",
@@ -342,6 +429,95 @@ const Auth = () => {
                     />
                     {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
                   </div>
+
+                  {/* اختيار المرحلة - Radio buttons */}
+                  <div className="space-y-2">
+                    <Label>المرحلة التعليمية</Label>
+                    <RadioGroup
+                      value={formData.stage}
+                      onValueChange={(value) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          stage: value as "preparatory" | "secondary",
+                          grades: [],
+                          subject: "",
+                        }));
+                        if (errors.stage) {
+                          setErrors((prev) => ({ ...prev, stage: "" }));
+                        }
+                      }}
+                      className="flex gap-6"
+                      dir="rtl"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="preparatory" id="stage-prep" />
+                        <Label htmlFor="stage-prep" className="cursor-pointer font-normal">
+                          إعدادي
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="secondary" id="stage-sec" />
+                        <Label htmlFor="stage-sec" className="cursor-pointer font-normal">
+                          ثانوي
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    {errors.stage && <p className="text-xs text-destructive">{errors.stage}</p>}
+                  </div>
+
+                  {/* اختيار الصفوف - Checkboxes */}
+                  {formData.stage && (
+                    <div className="space-y-2">
+                      <Label>الصفوف التي تدرّسها</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {availableGrades.map((grade) => (
+                          <label
+                            key={grade}
+                            className={`flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer text-sm transition-colors ${
+                              formData.grades.includes(grade)
+                                ? "border-primary bg-primary/10"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                          >
+                            <Checkbox
+                              checked={formData.grades.includes(grade)}
+                              onCheckedChange={() => toggleGrade(grade)}
+                            />
+                            {grade}
+                          </label>
+                        ))}
+                      </div>
+                      {errors.grades && <p className="text-xs text-destructive">{errors.grades}</p>}
+                    </div>
+                  )}
+
+                  {/* اختيار المادة - Select واحد */}
+                  {formData.grades.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>المادة التي تدرّسها</Label>
+                      <Select
+                        value={formData.subject}
+                        onValueChange={(value) => {
+                          setFormData((prev) => ({ ...prev, subject: value }));
+                          if (errors.subject) {
+                            setErrors((prev) => ({ ...prev, subject: "" }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger className={errors.subject ? "border-destructive" : ""}>
+                          <SelectValue placeholder="اختر المادة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableSubjects.map((subject) => (
+                            <SelectItem key={subject} value={subject}>
+                              {subject}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.subject && <p className="text-xs text-destructive">{errors.subject}</p>}
+                    </div>
+                  )}
                 </>
               )}
 
