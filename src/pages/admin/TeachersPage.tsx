@@ -31,6 +31,9 @@ type TeacherRequest = {
   status: "pending" | "approved" | "rejected";
   rejection_reason: string | null;
   created_at: string | null;
+  assigned_stages: string[] | null;
+  assigned_grades: string[] | null;
+  assigned_category: string | null;
 };
 
 const TeachersPage = () => {
@@ -90,7 +93,33 @@ const TeachersPage = () => {
         throw roleError;
       }
 
-      toast.success("تمت الموافقة على طلب المعلم");
+      // Create teacher_assignments for each grade
+      const stage = request.assigned_stages?.[0] || "secondary";
+      const category = request.assigned_category || "";
+      const grades = request.assigned_grades || [];
+
+      if (category && grades.length > 0) {
+        // Insert assignments for each grade
+        const assignments = grades.map((grade) => ({
+          teacher_id: request.user_id,
+          stage,
+          grade,
+          category,
+          section: null,
+        }));
+
+        const { error: assignError } = await supabase
+          .from("teacher_assignments")
+          .insert(assignments);
+
+        if (assignError) {
+          console.error("Error creating teacher assignments:", assignError);
+          // Don't throw - teacher is still approved, just assignments failed
+          toast.error("تم قبول المعلم لكن حدث خطأ في تعيين المواد");
+        }
+      }
+
+      toast.success("تمت الموافقة على طلب المعلم وتعيين المواد");
       loadRequests();
       setShowDetails(false);
     } catch (error) {
@@ -276,6 +305,38 @@ const TeachersPage = () => {
                   <IdCard className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">{selectedRequest.employee_id || "غير محدد"}</span>
                 </div>
+              </div>
+
+              {/* معلومات المادة والمرحلة */}
+              <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
+                <p className="text-sm font-medium text-primary">التخصص المطلوب:</p>
+                {selectedRequest.assigned_category && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-background">
+                      المادة: {selectedRequest.assigned_category}
+                    </Badge>
+                  </div>
+                )}
+                {selectedRequest.assigned_stages && selectedRequest.assigned_stages.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="bg-background">
+                      المرحلة: {selectedRequest.assigned_stages[0] === "secondary" ? "ثانوي" : "إعدادي"}
+                    </Badge>
+                  </div>
+                )}
+                {selectedRequest.assigned_grades && selectedRequest.assigned_grades.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-xs text-muted-foreground">الصفوف:</span>
+                    {selectedRequest.assigned_grades.map((grade) => (
+                      <Badge key={grade} variant="secondary" className="text-xs">
+                        {grade}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {!selectedRequest.assigned_category && !selectedRequest.assigned_stages?.length && (
+                  <p className="text-xs text-muted-foreground">لم يتم تحديد التخصص</p>
+                )}
               </div>
 
               {selectedRequest.rejection_reason && (
