@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -26,26 +27,29 @@ const SECONDARY_GRADES = [
   "الصف الثالث الثانوي",
 ];
 
+// المواد الموجودة فعلياً في المنصة - إعدادي
 const PREPARATORY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
   "رياضيات",
-  "علوم",
-  "دراسات",
   "لغة إنجليزية",
 ];
 
+// المواد الموجودة فعلياً في المنصة - ثانوي
 const SECONDARY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
   "أحياء",
   "فيزياء",
   "كيمياء",
+  "جيولوجيا",
   "تاريخ",
   "جغرافيا",
   "فلسفة",
+  "علم نفس",
+  "رياضيات",
   "لغة إنجليزية",
-  "فرنساوي",
+  "لغة فرنسية",
 ];
 
 /* ===================== */
@@ -139,28 +143,35 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
       </div>
 
-      {/* المرحلة */}
+      {/* المرحلة - Radio buttons اختيار واحد فقط */}
       <div>
-        <Label>المرحلة التعليمية</Label>
-        <Select
+        <Label className="mb-3 block">المرحلة التعليمية</Label>
+        <RadioGroup
           value={formData.stage}
           onValueChange={(value) =>
             onChange({
-              stage: value as any,
+              stage: value as "preparatory" | "secondary",
               grades: [],
               subject: "",
             })
           }
+          className="flex gap-6"
+          dir="rtl"
         >
-          <SelectTrigger>
-            <SelectValue placeholder="اختر المرحلة" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="preparatory">إعدادي</SelectItem>
-            <SelectItem value="secondary">ثانوي</SelectItem>
-          </SelectContent>
-        </Select>
-        {errors.stage && <p className="text-sm text-red-500">{errors.stage}</p>}
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="preparatory" id="stage-prep" />
+            <Label htmlFor="stage-prep" className="cursor-pointer font-normal">
+              إعدادي
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <RadioGroupItem value="secondary" id="stage-sec" />
+            <Label htmlFor="stage-sec" className="cursor-pointer font-normal">
+              ثانوي
+            </Label>
+          </div>
+        </RadioGroup>
+        {errors.stage && <p className="text-sm text-red-500 mt-1">{errors.stage}</p>}
       </div>
 
       {/* الصفوف */}
