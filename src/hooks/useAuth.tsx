@@ -33,6 +33,9 @@ interface TeacherSignUpData {
   phone?: string;
   schoolName?: string;
   employeeId?: string;
+  stage: "preparatory" | "secondary";
+  grades: string[];
+  subject: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -204,7 +207,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const redirectUrl = `${window.location.origin}/`;
 
-      const { error } = await supabase.auth.signUp({
+      // 1. Create the user account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
         options: {
@@ -219,11 +223,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
-      if (error) {
-        if (error.message.includes("User already registered")) {
+      if (authError) {
+        if (authError.message.includes("User already registered")) {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };
         }
-        return { error: error.message };
+        return { error: authError.message };
+      }
+
+      // 2. Create the teacher request with stage, grades, and subject
+      if (authData.user) {
+        const { error: requestError } = await supabase.from("teacher_requests").insert({
+          user_id: authData.user.id,
+          full_name: data.fullName,
+          email: data.email.trim(),
+          phone: data.phone || null,
+          school_name: data.schoolName || null,
+          employee_id: data.employeeId || null,
+          status: "pending",
+          assigned_stages: [data.stage],
+          assigned_grades: data.grades,
+          assigned_category: data.subject,
+        });
+
+        if (requestError) {
+          console.error("Error creating teacher request:", requestError);
+          // Don't return error here, the account was created successfully
+        }
       }
 
       return { error: null };
