@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BookOpen,
   Mail,
@@ -103,18 +104,49 @@ const Auth = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (!authLoading && user && role) {
-      if (role === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (role === "student") {
-        navigate("/dashboard", { replace: true });
-      } else if (role === "teacher") {
-        navigate("/pending-approval", { replace: true });
-      }
-    } else if (!authLoading && user && !role) {
-      // User exists but no role - likely pending teacher
-      navigate("/pending-approval", { replace: true });
+    if (authLoading || !user) return;
+
+    if (role === "admin") {
+      navigate("/admin", { replace: true });
+      return;
     }
+
+    if (role === "student") {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    if (role === "teacher") {
+      let cancelled = false;
+      (async () => {
+        const { data, error } = await supabase
+          .from("teacher_requests")
+          .select("status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (error) {
+          console.error("Error checking teacher approval status:", error);
+          navigate("/pending-approval", { replace: true });
+          return;
+        }
+
+        if (data?.status === "approved") {
+          navigate("/teacher", { replace: true });
+        } else {
+          navigate("/pending-approval", { replace: true });
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    // User exists but no role yet (or unknown)
+    navigate("/pending-approval", { replace: true });
   }, [user, role, authLoading, navigate]);
 
   // التحقق من قوة كلمة المرور

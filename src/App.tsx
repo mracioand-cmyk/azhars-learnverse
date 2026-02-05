@@ -31,6 +31,9 @@ import StudentAboutPage from "./pages/student/AboutPage";
 /* ===================== */
 import TeacherDashboard from "./pages/TeacherDashboard";
 import PendingApproval from "./pages/PendingApproval";
+import TeacherProtectedRoute from "./routes/TeacherProtectedRoute";
+import TeacherSubjectPage from "./pages/TeacherSubjectPage";
+import TeacherUploadContent from "./pages/teacher/TeacherUploadContent";
 
 /* ===================== */
 /* 🛠 Admin Pages */
@@ -136,9 +139,27 @@ const App = () => (
             <Route
               path="/teacher"
               element={
-                <ProtectedRoute allowedRoles={["teacher"]}>
+                <TeacherProtectedRoute>
                   <TeacherDashboard />
-                </ProtectedRoute>
+                </TeacherProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/teacher/subject"
+              element={
+                <TeacherProtectedRoute>
+                  <TeacherSubjectPage />
+                </TeacherProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/teacher/upload"
+              element={
+                <TeacherProtectedRoute>
+                  <TeacherUploadContent />
+                </TeacherProtectedRoute>
               }
             />
             <Route
