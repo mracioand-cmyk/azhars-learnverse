@@ -20,6 +20,7 @@ const TeacherDashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
+  const [syncingAssignments, setSyncingAssignments] = useState(false);
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
   const [teacherName, setTeacherName] = useState("");
 
@@ -43,6 +44,81 @@ const TeacherDashboard = () => {
       setTeacherName(profile.full_name);
     }
 
+    const syncAssignmentsFromApprovedRequestIfNeeded = async (
+      currentAssignments: TeacherAssignment[]
+    ) => {
+      if (currentAssignments.length > 0) return currentAssignments;
+
+      setSyncingAssignments(true);
+      try {
+        // إذا تمت الموافقة ولم تُنشأ التعيينات لأي سبب، نُنشئها تلقائياً من آخر طلب "مقبول"
+        const { data: approvedReq, error: reqError } = await supabase
+          .from("teacher_requests")
+          .select("assigned_stages, assigned_grades, assigned_category, status, created_at")
+          .eq("user_id", user!.id)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (reqError) {
+          console.error("Error loading teacher request for sync:", reqError);
+          return currentAssignments;
+        }
+
+        const stage = approvedReq?.assigned_stages?.[0] ?? "secondary";
+        const category = approvedReq?.assigned_category ?? "";
+        const grades = approvedReq?.assigned_grades ?? [];
+
+        if (!category || grades.length === 0) {
+          // لا توجد بيانات تعيينات محفوظة في الطلب
+          return currentAssignments;
+        }
+
+        // جلب الموجود لتفادي التكرار
+        const { data: existing } = await supabase
+          .from("teacher_assignments")
+          .select("stage, grade, section, category")
+          .eq("teacher_id", user!.id);
+
+        const existingKeys = new Set(
+          (existing || []).map(
+            (a) => `${a.category}|${a.stage}|${a.grade}|${a.section ?? ""}`
+          )
+        );
+
+        const toInsert = grades
+          .map((grade) => ({
+            teacher_id: user!.id,
+            stage,
+            grade,
+            category,
+            section: null,
+          }))
+          .filter((a) => !existingKeys.has(`${a.category}|${a.stage}|${a.grade}|`));
+
+        if (toInsert.length > 0) {
+          const { error: insertError } = await supabase
+            .from("teacher_assignments")
+            .insert(toInsert);
+
+          if (insertError) {
+            console.error("Error syncing teacher assignments:", insertError);
+            return currentAssignments;
+          }
+        }
+
+        const { data: refreshed } = await supabase
+          .from("teacher_assignments")
+          .select("stage, grade, section, category")
+          .eq("teacher_id", user!.id);
+
+        return (refreshed || []) as TeacherAssignment[];
+      } finally {
+        setSyncingAssignments(false);
+      }
+    };
+
     // جلب تخصيصات المعلم
     const { data, error } = await supabase
       .from("teacher_assignments")
@@ -53,7 +129,10 @@ const TeacherDashboard = () => {
       console.error("Error loading teacher assignments:", error);
       setAssignments([]);
     } else {
-      setAssignments(data || []);
+      const synced = await syncAssignmentsFromApprovedRequestIfNeeded(
+        (data || []) as TeacherAssignment[]
+      );
+      setAssignments(synced);
     }
 
     setLoading(false);
@@ -100,11 +179,25 @@ const TeacherDashboard = () => {
           </div>
           <h2 className="text-xl font-bold mb-2">لم يتم ربطك بأي مادة حتى الآن</h2>
           <p className="text-muted-foreground mb-4">
-            انتظر حتى يقوم الأدمن بتعيينك على المواد والصفوف
+            {syncingAssignments
+              ? "جاري مزامنة تعييناتك تلقائياً..."
+              : "إذا تمت الموافقة ولم تظهر المواد، اضغط إعادة المحاولة للمزامنة تلقائياً."}
           </p>
-          <Button variant="outline" onClick={handleLogout}>
-            تسجيل الخروج
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button
+              onClick={fetchTeacherData}
+              disabled={syncingAssignments}
+              className="gap-2"
+            >
+              {syncingAssignments && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
+              إعادة المحاولة
+            </Button>
+            <Button variant="outline" onClick={handleLogout}>
+              تسجيل الخروج
+            </Button>
+          </div>
         </div>
       </div>
     );
