@@ -45,6 +45,36 @@ const TeachersPage = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
 
+  const syncTeacherAssignments = async (request: TeacherRequest) => {
+    const stage = request.assigned_stages?.[0] || "secondary";
+    const category = request.assigned_category || "";
+    const grades = request.assigned_grades || [];
+
+    if (!category || grades.length === 0) {
+      toast.error("لا توجد مادة/صفوف محفوظة في طلب المعلم");
+      return;
+    }
+
+    // لضمان عدم تكرار التعيينات عند إعادة المزامنة
+    await supabase
+      .from("teacher_assignments")
+      .delete()
+      .eq("teacher_id", request.user_id)
+      .eq("stage", stage)
+      .eq("category", category);
+
+    const assignments = grades.map((grade) => ({
+      teacher_id: request.user_id,
+      stage,
+      grade,
+      category,
+      section: null,
+    }));
+
+    const { error } = await supabase.from("teacher_assignments").insert(assignments);
+    if (error) throw error;
+  };
+
   const loadRequests = async () => {
     setLoading(true);
     try {
@@ -81,6 +111,16 @@ const TeachersPage = () => {
 
       if (requestError) throw requestError;
 
+      // Update profile role (الاعتماد النهائي)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ role: "teacher" })
+        .eq("id", request.user_id);
+
+      if (profileError) {
+        console.error("Error updating profile role:", profileError);
+      }
+
       // Add teacher role
       const { error: roleError } = await supabase
         .from("user_roles")
@@ -93,30 +133,12 @@ const TeachersPage = () => {
         throw roleError;
       }
 
-      // Create teacher_assignments for each grade
-      const stage = request.assigned_stages?.[0] || "secondary";
-      const category = request.assigned_category || "";
-      const grades = request.assigned_grades || [];
-
-      if (category && grades.length > 0) {
-        // Insert assignments for each grade
-        const assignments = grades.map((grade) => ({
-          teacher_id: request.user_id,
-          stage,
-          grade,
-          category,
-          section: null,
-        }));
-
-        const { error: assignError } = await supabase
-          .from("teacher_assignments")
-          .insert(assignments);
-
-        if (assignError) {
-          console.error("Error creating teacher assignments:", assignError);
-          // Don't throw - teacher is still approved, just assignments failed
-          toast.error("تم قبول المعلم لكن حدث خطأ في تعيين المواد");
-        }
+      try {
+        await syncTeacherAssignments(request);
+      } catch (assignError) {
+        console.error("Error creating teacher assignments:", assignError);
+        // Don't throw - teacher is still approved, just assignments failed
+        toast.error("تم قبول المعلم لكن حدث خطأ في تعيين المواد");
       }
 
       toast.success("تمت الموافقة على طلب المعلم وتعيين المواد");
@@ -369,6 +391,30 @@ const TeachersPage = () => {
                   قبول
                 </Button>
               </div>
+            )}
+
+            {selectedRequest?.status === "approved" && (
+              <Button
+                variant="outline"
+                disabled={actionLoading}
+                onClick={async () => {
+                  if (!selectedRequest) return;
+                  setActionLoading(true);
+                  try {
+                    await syncTeacherAssignments(selectedRequest);
+                    toast.success("تمت مزامنة تعيينات المعلم");
+                    loadRequests();
+                  } catch (e) {
+                    console.error("Error syncing assignments:", e);
+                    toast.error("حدث خطأ أثناء مزامنة التعيينات");
+                  } finally {
+                    setActionLoading(false);
+                  }
+                }}
+              >
+                {actionLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+                إعادة مزامنة التعيينات
+              </Button>
             )}
           </DialogFooter>
         </DialogContent>
