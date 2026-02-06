@@ -1,201 +1,234 @@
 // src/pages/TeacherSubjectPage.tsx
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowRight, Upload, Video, FileText, BookOpen, ClipboardList } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Loader2, ArrowRight, Upload, BookOpen } from "lucide-react";
+import {
+  gradeKeyFromArabicLabel,
+  subjectFilterFromTeacherSelection,
+  teacherSelectionLabel,
+} from "@/lib/teacherSubjectUtils";
 
-type ContentItem = {
+type SubjectRow = {
   id: string;
-  title: string;
-  type: string;
-  created_at: string;
-  file_url: string;
+  name: string;
+  description: string | null;
+  category: string;
+  stage: string;
+  grade: string;
+  section: string | null;
 };
 
+type ContentCountRow = {
+  subject_id: string | null;
+  id: string;
+};
+
+function stageLabel(stage: string) {
+  if (stage === "preparatory") return "إعدادي";
+  if (stage === "secondary") return "ثانوي";
+  return stage;
+}
+
+function sectionLabel(section: string | null) {
+  if (section === "scientific") return "علمي";
+  if (section === "literary") return "أدبي";
+  return "";
+}
+
 const TeacherSubjectPage = () => {
-  const [searchParams] = useSearchParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const category = searchParams.get("category");
-  const grade = searchParams.get("grade");
-  const stage = searchParams.get("stage");
+  // NOTE: TeacherDashboard navigates with ?category=<selection>&grade=<arabic grade label>&stage=<stage key>
+  const selection = params.get("category") || "";
+  const gradeLabel = params.get("grade") || "";
+  const stage = params.get("stage") || "";
 
-  const [loading, setLoading] = useState(true);
-  const [content, setContent] = useState<ContentItem[]>([]);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [contentCountBySubjectId, setContentCountBySubjectId] = useState<Record<string, number>>({});
+
+  const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
 
   useEffect(() => {
-    if (!user || !category || !grade || !stage) return;
-    loadContent();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, category, grade, stage]);
+    if (!user || !selection || !gradeLabel || !stage) return;
 
-  const loadContent = async () => {
-    setLoading(true);
+    const run = async () => {
+      setIsLoading(true);
+      try {
+        const gradeKey = gradeKeyFromArabicLabel(gradeLabel);
+        const filter = subjectFilterFromTeacherSelection(selection);
 
-    // أولاً نجد الـ subject المناسب
-    const { data: subjects, error: subjectError } = await supabase
-      .from("subjects")
-      .select("id")
-      .eq("category", category)
-      .eq("grade", grade)
-      .eq("stage", stage)
-      .limit(1);
+        if (!gradeKey || !filter) {
+          setSubjects([]);
+          setContentCountBySubjectId({});
+          return;
+        }
 
-    if (subjectError || !subjects || subjects.length === 0) {
-      console.error("Error finding subject:", subjectError);
-      setContent([]);
-      setLoading(false);
-      return;
-    }
+        let q = supabase
+          .from("subjects")
+          .select("id, name, description, category, stage, grade, section")
+          .eq("is_active", true)
+          .eq("stage", stage)
+          .eq("grade", gradeKey)
+          .eq("category", filter.categoryKey);
 
-    const foundSubjectId = subjects[0].id;
-    setSubjectId(foundSubjectId);
+        // If teacher picked a single subject like "فيزياء" => filter to that specific subject row.
+        if (filter.subjectName) {
+          q = q.eq("name", filter.subjectName);
+        }
 
-    // ثم نجلب المحتوى المرفوع من هذا المعلم لهذه المادة
-    const { data, error } = await supabase
-      .from("content")
-      .select("id, title, type, created_at, file_url")
-      .eq("subject_id", foundSubjectId)
-      .eq("uploaded_by", user!.id)
-      .order("created_at", { ascending: false });
+        const { data: subjectsData, error: subjectsError } = await q.order("name", { ascending: true });
+        if (subjectsError) throw subjectsError;
 
-    if (error) {
-      console.error("Error loading content:", error);
-      setContent([]);
-    } else {
-      setContent(data || []);
-    }
+        const list = (subjectsData as SubjectRow[]) || [];
+        setSubjects(list);
 
-    setLoading(false);
-  };
+        // load content counts (only this teacher's uploads)
+        if (list.length === 0) {
+          setContentCountBySubjectId({});
+          return;
+        }
 
-  const getContentIcon = (type: string) => {
-    switch (type) {
-      case "video":
-        return <Video className="h-5 w-5 text-blue-500" />;
-      case "book":
-        return <BookOpen className="h-5 w-5 text-green-500" />;
-      case "exam":
-        return <ClipboardList className="h-5 w-5 text-orange-500" />;
-      default:
-        return <FileText className="h-5 w-5 text-purple-500" />;
-    }
-  };
+        const subjectIds = list.map((s) => s.id);
+        const { data: contentData, error: contentError } = await supabase
+          .from("content")
+          .select("id, subject_id")
+          .eq("is_active", true)
+          .eq("uploaded_by", user.id)
+          .in("subject_id", subjectIds);
 
-  const getContentTypeName = (type: string) => {
-    switch (type) {
-      case "video":
-        return "فيديو";
-      case "book":
-        return "كتاب";
-      case "exam":
-        return "امتحان";
-      case "summary":
-        return "ملخص";
-      default:
-        return type;
-    }
-  };
+        if (contentError) throw contentError;
 
-  if (loading) {
+        const counts: Record<string, number> = {};
+        (contentData as ContentCountRow[] | null | undefined)?.forEach((c) => {
+          if (!c.subject_id) return;
+          counts[c.subject_id] = (counts[c.subject_id] || 0) + 1;
+        });
+        setContentCountBySubjectId(counts);
+      } catch (e) {
+        console.error("Error loading teacher subjects:", e);
+        setSubjects([]);
+        setContentCountBySubjectId({});
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    run();
+  }, [user, selection, gradeLabel, stage]);
+
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground">جاري تحميل المحتوى...</p>
+          <p className="text-muted-foreground">جاري تحميل المواد...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-        <Button variant="ghost" onClick={() => navigate("/teacher")} className="gap-2">
-          <ArrowRight className="h-4 w-4" />
-          رجوع
-        </Button>
+      <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
+        <div className="container flex h-16 items-center justify-between px-4">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-azhari shadow-lg shadow-primary/20 group-hover:shadow-primary/40 transition-shadow">
+              <BookOpen className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold text-gradient-azhari">أزهاريون</span>
+          </Link>
 
-        <Button
-          className="gap-2"
-          onClick={() =>
-            navigate(
-              `/teacher/upload?category=${encodeURIComponent(category || "")}&grade=${encodeURIComponent(grade || "")}&stage=${stage}&subject_id=${subjectId || ""}`
-            )
-          }
-        >
-          <Upload className="h-4 w-4" />
-          إضافة محتوى
-        </Button>
-      </div>
-
-      {/* Info */}
-      <Card className="mb-6">
-        <CardContent className="p-5 space-y-1">
-          <p className="font-semibold text-lg text-primary">{category}</p>
-          <p className="text-sm text-muted-foreground">
-            الصف: {grade}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            المرحلة: {stage === "secondary" ? "ثانوي" : "إعدادي"}
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Content List */}
-      {content.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-            <FileText className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <p className="text-muted-foreground">لا يوجد محتوى مضاف حتى الآن.</p>
-          <Button
-            className="mt-4"
-            onClick={() =>
-              navigate(
-                `/teacher/upload?category=${encodeURIComponent(category || "")}&grade=${encodeURIComponent(grade || "")}&stage=${stage}&subject_id=${subjectId || ""}`
-              )
-            }
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            أضف أول محتوى
+          <Button variant="ghost" onClick={() => navigate("/teacher")} className="gap-2 hover:bg-accent">
+            <ArrowRight className="h-4 w-4" />
+            رجوع
           </Button>
         </div>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {content.map((item) => (
-            <Card key={item.id} className="hover:shadow-md transition">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  {getContentIcon(item.type)}
-                  <h3 className="font-semibold flex-1">{item.title}</h3>
-                </div>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{getContentTypeName(item.type)}</span>
-                  <span>{new Date(item.created_at).toLocaleDateString("ar-EG")}</span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => window.open(item.file_url, "_blank")}
-                  >
-                    عرض
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      </header>
+
+      <main className="container px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">{headerTitle || "مواد المعلم"}</h1>
+          <p className="text-muted-foreground">
+            الصف: {gradeLabel} • المرحلة: {stageLabel(stage)}
+          </p>
         </div>
-      )}
+
+        {subjects.length === 0 ? (
+          <Card className="border-2 border-dashed">
+            <CardContent className="p-10 text-center">
+              <p className="text-lg font-semibold mb-2">لا توجد مواد مطابقة لتعيينك</p>
+              <p className="text-muted-foreground mb-6">
+                هذا يحدث غالباً لأن اختيار المادة/الصف في طلب المعلم لا يطابق هيكل المواد داخل المنصة.
+              </p>
+              <Button onClick={() => navigate("/teacher")}>
+                الرجوع للوحة المعلم
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {subjects.map((s) => {
+              const count = contentCountBySubjectId[s.id] || 0;
+              const sec = sectionLabel(s.section);
+
+              return (
+                <Card
+                  key={s.id}
+                  className="cursor-pointer border-2 border-transparent hover:border-primary/30 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 group bg-card/50 backdrop-blur overflow-hidden hover:-translate-y-1"
+                  onClick={() =>
+                    navigate(
+                      `/teacher/upload?subject_id=${encodeURIComponent(s.id)}&category=${encodeURIComponent(selection)}&grade=${encodeURIComponent(
+                        gradeLabel
+                      )}&stage=${encodeURIComponent(stage)}&subject_name=${encodeURIComponent(s.name)}`
+                    )
+                  }
+                >
+                  <CardContent className="p-6 relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+
+                    <div className="flex items-start justify-between gap-3 relative">
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors truncate">
+                          {s.name}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {sec ? `الشعبة: ${sec} • ` : ""}محتواك: {count}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0">
+                        <div className="p-2 rounded-lg bg-primary/10 border border-primary/15">
+                          <Upload className="h-5 w-5 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {s.description && (
+                      <p className="text-sm text-muted-foreground mt-3 line-clamp-2 relative">{s.description}</p>
+                    )}
+
+                    <div className="mt-5">
+                      <Button className="w-full gap-2" size="sm">
+                        <Upload className="h-4 w-4" />
+                        إدارة ورفع المحتوى
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </main>
     </div>
   );
 };
