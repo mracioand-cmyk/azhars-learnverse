@@ -92,19 +92,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!isMounted) return;
         setSession(session);
         setUser(session?.user ?? null);
 
         // Defer Supabase calls with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(async () => {
+            if (!isMounted) return;
             const userRole = await fetchUserRole(session.user.id);
+            if (!isMounted) return;
             setRole(userRole);
             
             const banned = await checkIfBanned(session.user.id);
+            if (!isMounted) return;
             setIsBanned(banned);
             
             setIsLoading(false);
@@ -118,18 +124,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRole(session.user.id).then(setRole);
-        checkIfBanned(session.user.id).then(setIsBanned);
+        // Wait for BOTH role and ban status before setting isLoading to false
+        const [userRole, banned] = await Promise.all([
+          fetchUserRole(session.user.id),
+          checkIfBanned(session.user.id),
+        ]);
+        if (!isMounted) return;
+        setRole(userRole);
+        setIsBanned(banned);
       }
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
