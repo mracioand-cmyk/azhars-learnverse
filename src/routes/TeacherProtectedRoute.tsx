@@ -18,46 +18,58 @@ const TeacherProtectedRoute = ({ children }: Props) => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    // Don't check until auth is fully loaded (user + role resolved)
+    if (isLoading) return;
+
     const checkTeacherStatus = async () => {
       if (!user) {
         setChecking(false);
         return;
       }
 
-      // لو أدمن
+      // Admin can access teacher routes
       if (role === "admin") {
         setTeacherStatus("approved");
         setChecking(false);
         return;
       }
 
-      // لو مش معلم
+      // Not a teacher → no access
       if (role !== "teacher") {
         setTeacherStatus(null);
         setChecking(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("teacher_requests")
-        .select("status")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("teacher_requests")
+          .select("status")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (error) {
-        console.error("Error checking teacher status:", error);
+        if (error) {
+          console.error("Error checking teacher status:", error);
+          setTeacherStatus(null);
+        } else {
+          setTeacherStatus((data?.status as TeacherStatus) ?? null);
+        }
+      } catch (err) {
+        console.error("Exception checking teacher status:", err);
         setTeacherStatus(null);
-      } else {
-        setTeacherStatus(data?.status ?? null);
       }
 
       setChecking(false);
     };
 
+    // Reset checking state when deps change
+    setChecking(true);
     checkTeacherStatus();
-  }, [user, role]);
+  }, [user, role, isLoading]);
 
-  // أثناء التحميل
+  // Still loading auth context or checking teacher status
   if (isLoading || checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
@@ -69,37 +81,37 @@ const TeacherProtectedRoute = ({ children }: Props) => {
     );
   }
 
-  // غير مسجل
+  // Not authenticated
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  // طالب
+  // Student → redirect to student dashboard
   if (role === "student") {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // معلم لكن لسه ما اتوافقش عليه
-  if (role === "teacher" && teacherStatus === "pending") {
-    return <Navigate to="/pending-approval" replace />;
-  }
-
-  // معلم مرفوض
-  if (role === "teacher" && teacherStatus === "rejected") {
-    return <Navigate to="/pending-approval" replace />;
-  }
-
-  // معلم معتمد
-  if (role === "teacher" && teacherStatus === "approved") {
-    return <>{children}</>;
-  }
-
-  // أدمن
+  // Admin → allow
   if (role === "admin") {
     return <>{children}</>;
   }
 
-  // أي حالة غريبة
+  // Teacher with approved status → allow
+  if (role === "teacher" && teacherStatus === "approved") {
+    return <>{children}</>;
+  }
+
+  // Teacher with pending/rejected status → pending approval page
+  if (role === "teacher" && (teacherStatus === "pending" || teacherStatus === "rejected")) {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  // Role is still null (shouldn't happen after loading) or unknown state → show loading briefly then redirect
+  if (!role) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Any other unexpected state
   return <Navigate to="/" replace />;
 };
 
