@@ -155,7 +155,7 @@ const App = () => (
             />
 
             <Route
-              path="/teacher/upload"
+              path="/teacher/upload/subject/:subjectId"
               element={
                 <TeacherProtectedRoute>
                   <TeacherUploadContent />
