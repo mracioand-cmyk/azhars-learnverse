@@ -25,6 +25,7 @@ import SubjectAiChat from "./pages/SubjectAiChat";
 import AiChat from "./pages/AiChat";
 import StudentSupportPage from "./pages/student/SupportPage";
 import StudentAboutPage from "./pages/student/AboutPage";
+import TeacherSelection from "./pages/student/TeacherSelection";
 
 /* ===================== */
 /* 👨‍🏫 Teacher Pages */
@@ -129,6 +130,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={["student", "admin"]}>
                   <StudentAboutPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/select-teacher"
+              element={
+                <ProtectedRoute allowedRoles={["student", "admin"]}>
+                  <TeacherSelection />
                 </ProtectedRoute>
               }
             />
