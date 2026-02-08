@@ -839,173 +839,26 @@ const StudentsTab = () => {
 };
 
 // ============================================
-// TEACHERS TAB
+// TEACHERS TAB - Uses new AdminTeacherManagement component
 // ============================================
 const TeachersTab = () => {
-  const [requests, setRequests] = useState<TeacherRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchRequests = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("teacher_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setRequests(data || []);
-    } catch (error) {
-      console.error("Error fetching teacher requests:", error);
-      toast.error("خطأ في تحميل طلبات المعلمين");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Dynamically import to keep this file smaller
+  const [Component, setComponent] = useState<React.ComponentType | null>(null);
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
-
-  const handleApprove = async (request: TeacherRequest) => {
-    try {
-      // Update teacher request status
-      const { error: requestError } = await supabase
-        .from("teacher_requests")
-        .update({ status: "approved", reviewed_at: new Date().toISOString() })
-        .eq("id", request.id);
-
-      if (requestError) throw requestError;
-
-      // Add teacher role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: request.user_id, role: "teacher" });
-
-      if (roleError && !roleError.message.includes("duplicate")) {
-        throw roleError;
-      }
-
-      toast.success("تم قبول المعلم بنجاح");
-      fetchRequests();
-    } catch (error) {
-      console.error("Error approving teacher:", error);
-      toast.error("خطأ في قبول المعلم");
-    }
-  };
-
-  const handleReject = async (request: TeacherRequest) => {
-    try {
-      const { error } = await supabase
-        .from("teacher_requests")
-        .update({ status: "rejected", reviewed_at: new Date().toISOString() })
-        .eq("id", request.id);
-
-      if (error) throw error;
-
-      toast.success("تم رفض الطلب");
-      fetchRequests();
-    } catch (error) {
-      console.error("Error rejecting teacher:", error);
-      toast.error("خطأ في رفض الطلب");
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Badge variant="secondary">معلق</Badge>;
-      case "approved":
-        return <Badge className="bg-green-500">مقبول</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">مرفوض</Badge>;
-      default:
-        return null;
-    }
-  };
-
-  if (loading) {
+    import("@/components/admin/AdminTeacherManagement").then(mod => {
+      setComponent(() => mod.default);
+    });
+  }, []);
+  
+  if (!Component) {
     return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold">إدارة المعلمين</h2>
-        <Skeleton className="h-96" />
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <GraduationCap className="h-6 w-6" />
-          إدارة المعلمين
-        </h2>
-        <Badge variant="secondary">
-          {requests.filter((r) => r.status === "pending").length} طلب معلق
-        </Badge>
-      </div>
-
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-right">الاسم</TableHead>
-                <TableHead className="text-right">البريد الإلكتروني</TableHead>
-                <TableHead className="text-right">الهاتف</TableHead>
-                <TableHead className="text-right">المدرسة</TableHead>
-                <TableHead className="text-right">رقم الموظف</TableHead>
-                <TableHead className="text-right">الحالة</TableHead>
-                <TableHead className="text-right">الإجراءات</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {requests.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    لا يوجد طلبات
-                  </TableCell>
-                </TableRow>
-              ) : (
-                requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="font-medium">{request.full_name}</TableCell>
-                    <TableCell>{request.email}</TableCell>
-                    <TableCell>{request.phone || "-"}</TableCell>
-                    <TableCell>{request.school_name || "-"}</TableCell>
-                    <TableCell>{request.employee_id || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(request.status)}</TableCell>
-                    <TableCell>
-                      {request.status === "pending" && (
-                        <div className="flex gap-2">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            className="bg-green-500 hover:bg-green-600"
-                            onClick={() => handleApprove(request)}
-                          >
-                            <CheckCircle className="h-4 w-4 ml-1" />
-                            قبول
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleReject(request)}
-                          >
-                            <XCircle className="h-4 w-4 ml-1" />
-                            رفض
-                          </Button>
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  
+  return <Component />;
 };
 
 // ============================================
