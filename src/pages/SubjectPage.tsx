@@ -9,6 +9,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import ContentUpsertDialog, { ContentItem, ContentType, extractStoragePathFromPublicUrl } from "@/components/content/ContentUpsertDialog";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
+import TeacherBanner from "@/components/student/TeacherBanner";
 import {
   BookOpen,
   ChevronLeft,
@@ -79,6 +80,7 @@ const SubjectPage = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [chosenTeacherId, setChosenTeacherId] = useState<string | null>(null);
   const [chosenTeacherName, setChosenTeacherName] = useState<string | null>(null);
 
   // dialogs
@@ -131,6 +133,7 @@ const SubjectPage = () => {
 
         if (choiceData) {
           teacherId = choiceData.teacher_id;
+          setChosenTeacherId(choiceData.teacher_id);
 
           // Get teacher name for paywall
           const { data: teacherProfile } = await supabase
@@ -140,17 +143,21 @@ const SubjectPage = () => {
             .maybeSingle();
 
           setChosenTeacherName(teacherProfile?.full_name || null);
+        } else {
+          setChosenTeacherId(null);
+          setChosenTeacherName(null);
         }
       }
 
-      // 3. Fetch content (filtered by chosen teacher for students)
+      // 3. Fetch content (filtered by chosen teacher for students, or all for browsing)
       let contentQuery = supabase
         .from("content")
         .select("id, title, type, file_url, description, created_at")
         .eq("subject_id", subjectId)
         .eq("is_active", true);
 
-      if (teacherId) {
+      // If student chose a teacher, only show that teacher's content
+      if (teacherId && role !== "admin") {
         contentQuery = contentQuery.eq("uploaded_by", teacherId);
       }
 
@@ -165,6 +172,12 @@ const SubjectPage = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTeacherSelected = (teacherId: string) => {
+    setChosenTeacherId(teacherId);
+    // Re-fetch content filtered by the new teacher
+    fetchAll();
   };
 
   useEffect(() => {
@@ -314,6 +327,17 @@ const SubjectPage = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">{subject.name}</h1>
           <p className="text-muted-foreground">{subtitle}</p>
         </div>
+
+        {/* Teacher Banner - only for students */}
+        {!isAdmin && subject && (
+          <TeacherBanner
+            category={subject.category}
+            stage={subject.stage}
+            grade={subject.grade}
+            section={subject.section}
+            onTeacherSelected={handleTeacherSelected}
+          />
+        )}
 
         <Tabs defaultValue="books" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-8">
