@@ -161,6 +161,10 @@ const SubscriptionsPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
 
+  // Teacher selection for subscription
+  const [categoryTeachers, setCategoryTeachers] = useState<Record<string, { teacher_id: string; teacher_name: string; photo_url: string | null }[]>>({});
+  const [selectedTeachers, setSelectedTeachers] = useState<Record<string, string>>({});
+
   // View Subscriptions State
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
@@ -272,6 +276,64 @@ const SubscriptionsPage = () => {
     }
   }, [msgStage, msgGrade, msgSection, msgCategory, subscriptionMessages, settings.price]);
 
+  // Fetch teachers when categories are selected for subscription
+  useEffect(() => {
+    if (!selectedStudent || selectedCategories.length === 0) {
+      setCategoryTeachers({});
+      return;
+    }
+
+    const fetchTeachersForCategories = async () => {
+      const result: Record<string, { teacher_id: string; teacher_name: string; photo_url: string | null }[]> = {};
+
+      for (const category of selectedCategories) {
+        const { data: assignments } = await supabase
+          .from("teacher_assignments")
+          .select("teacher_id")
+          .eq("category", category)
+          .eq("stage", selectedStudent.stage!)
+          .eq("grade", selectedStudent.grade!);
+
+        if (!assignments || assignments.length === 0) {
+          result[category] = [];
+          continue;
+        }
+
+        const teacherIds = [...new Set(assignments.map((a) => a.teacher_id))];
+
+        const { data: profiles } = await supabase
+          .from("teacher_profiles")
+          .select("teacher_id, photo_url")
+          .in("teacher_id", teacherIds)
+          .eq("is_approved", true);
+
+        if (!profiles || profiles.length === 0) {
+          result[category] = [];
+          continue;
+        }
+
+        const approvedIds = profiles.map((p) => p.teacher_id);
+        const { data: names } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", approvedIds);
+
+        const nameMap = new Map(names?.map((n) => [n.id, n.full_name]) || []);
+        const photoMap = new Map(profiles.map((p) => [p.teacher_id, p.photo_url]));
+
+        result[category] = approvedIds.map((id) => ({
+          teacher_id: id,
+          teacher_name: nameMap.get(id) || "معلم",
+          photo_url: photoMap.get(id) || null,
+        }));
+      }
+
+      setCategoryTeachers(result);
+    };
+
+    fetchTeachersForCategories();
+  }, [selectedCategories, selectedStudent]);
+
   // Search students
   const searchStudents = useCallback(async () => {
     if (!searchQuery.trim()) {
@@ -303,6 +365,8 @@ const SubscriptionsPage = () => {
     setSearchResults([]);
     setSearchQuery("");
     setSelectedCategories([]);
+    setSelectedTeachers({});
+    setCategoryTeachers({});
 
     // Get categories available for this student
     const categories = getCategoriesForStudent(student.stage, student.section);
@@ -382,6 +446,17 @@ const SubscriptionsPage = () => {
       return;
     }
 
+    // Validate teacher selection for categories that have teachers
+    const categoriesNeedingTeacher = selectedCategories.filter((catId) => {
+      const teachers = categoryTeachers[catId] || [];
+      return teachers.length > 0 && !selectedTeachers[catId];
+    });
+
+    if (categoriesNeedingTeacher.length > 0) {
+      toast.error("يرجى اختيار المعلم لجميع المواد التي يوجد لها معلمين");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const endDate =
@@ -402,6 +477,8 @@ const SubscriptionsPage = () => {
           (s) => s.subject_id === subject.id
         );
 
+        const teacherId = selectedTeachers[subject.category] || null;
+
         if (existingSub) {
           // Update existing subscription
           await supabase
@@ -410,6 +487,7 @@ const SubscriptionsPage = () => {
               end_date: endDate.toISOString(),
               is_active: true,
               renewal_count: (existingSub.renewal_count || 0) + 1,
+              teacher_id: teacherId,
             })
             .eq("id", existingSub.id);
         } else {
@@ -421,12 +499,15 @@ const SubscriptionsPage = () => {
             end_date: endDate.toISOString(),
             is_active: true,
             created_by: user?.id,
+            teacher_id: teacherId,
           });
         }
       }
 
       toast.success(`تم تفعيل الاشتراك في ${selectedCategories.length} مادة (${subjectsToSubscribe.length} مادة فرعية)`);
       setSelectedCategories([]);
+      setSelectedTeachers({});
+      setCategoryTeachers({});
       
       // Refresh subscriptions
       const { data: subs } = await supabase
@@ -890,6 +971,56 @@ const SubscriptionsPage = () => {
                         })}
                       </div>
                     </div>
+
+                    {/* Teacher Selection per Category */}
+                    {selectedCategories.length > 0 && (
+                      <div className="space-y-3">
+                        <Label className="text-base font-semibold flex items-center gap-2">
+                          <GraduationCap className="h-5 w-5 text-primary" />
+                          اختر المعلم لكل مادة
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          حدد المعلم الذي اختاره الطالب لكل مادة لعرض محتواه فقط
+                        </p>
+                        <div className="grid gap-3">
+                          {selectedCategories.map((catId) => {
+                            const cat = studentCategories.find((c) => c.id === catId);
+                            const teachers = categoryTeachers[catId] || [];
+
+                            return (
+                              <Card key={catId} className="border">
+                                <CardContent className="p-4 space-y-3">
+                                  <Label className="font-medium">{cat?.name || catId}</Label>
+                                  {teachers.length === 0 ? (
+                                    <p className="text-sm text-amber-600">
+                                      لا يوجد معلمين مسجلين لهذه المادة - سيتم التفعيل بدون معلم
+                                    </p>
+                                  ) : (
+                                    <Select
+                                      value={selectedTeachers[catId] || ""}
+                                      onValueChange={(val) =>
+                                        setSelectedTeachers((prev) => ({ ...prev, [catId]: val }))
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="اختر المعلم..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {teachers.map((t) => (
+                                          <SelectItem key={t.teacher_id} value={t.teacher_id}>
+                                            {t.teacher_name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Duration Selection */}
                     {selectedCategories.length > 0 && (

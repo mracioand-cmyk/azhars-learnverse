@@ -19,6 +19,7 @@ interface PaywallDialogProps {
   section?: string | null;
   studentId: string;
   studentCode?: string | null;
+  teacherName?: string | null;
 }
 
 const PaywallDialog = ({
@@ -30,6 +31,7 @@ const PaywallDialog = ({
   section,
   studentId,
   studentCode,
+  teacherName,
 }: PaywallDialogProps) => {
   const [settings, setSettings] = useState({
     whatsapp: "01223909712",
@@ -95,6 +97,7 @@ const PaywallDialog = ({
 الصف: {grade}
 المرحلة: {stage}
 القسم: {section}
+المعلم: {teacher}
 ID الطالب: {student_id}`;
 
     message = message
@@ -102,6 +105,7 @@ ID الطالب: {student_id}`;
       .replace("{grade}", formatGrade(grade))
       .replace("{stage}", formatStage(stage))
       .replace("{section}", formatSection(section) || "غير محدد")
+      .replace("{teacher}", teacherName || "غير محدد")
       .replace("{student_id}", studentCode || studentId.substring(0, 8));
 
     const encodedMessage = encodeURIComponent(message);
