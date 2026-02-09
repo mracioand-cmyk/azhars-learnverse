@@ -36,6 +36,7 @@ type SubjectRow = {
   stage: string;
   grade: string;
   section: string | null;
+  category: string;
 };
 
 type ContentRow = {
@@ -78,6 +79,7 @@ const SubjectPage = () => {
   const [content, setContent] = useState<ContentRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [chosenTeacherName, setChosenTeacherName] = useState<string | null>(null);
 
   // dialogs
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -105,20 +107,57 @@ const SubjectPage = () => {
     if (!subjectId) return;
     setIsLoading(true);
     try {
-      const [{ data: subjectData, error: subjectError }, { data: contentData, error: contentError }] = await Promise.all([
-        supabase.from("subjects").select("id, name, stage, grade, section").eq("id", subjectId).maybeSingle(),
-        supabase
-          .from("content")
-          .select("id, title, type, file_url, description, created_at")
-          .eq("subject_id", subjectId)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false }),
-      ]);
+      // 1. Fetch subject with category
+      const { data: subjectData, error: subjectError } = await supabase
+        .from("subjects")
+        .select("id, name, stage, grade, section, category")
+        .eq("id", subjectId)
+        .maybeSingle();
 
       if (subjectError) throw subjectError;
-      if (contentError) throw contentError;
-
       setSubject((subjectData as SubjectRow) || null);
+
+      // 2. Get teacher choice for student (content isolation)
+      let teacherId: string | null = null;
+      if (user && role !== "admin" && subjectData) {
+        const { data: choiceData } = await supabase
+          .from("student_teacher_choices")
+          .select("teacher_id")
+          .eq("student_id", user.id)
+          .eq("category", subjectData.category)
+          .eq("stage", subjectData.stage)
+          .eq("grade", subjectData.grade)
+          .maybeSingle();
+
+        if (choiceData) {
+          teacherId = choiceData.teacher_id;
+
+          // Get teacher name for paywall
+          const { data: teacherProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", choiceData.teacher_id)
+            .maybeSingle();
+
+          setChosenTeacherName(teacherProfile?.full_name || null);
+        }
+      }
+
+      // 3. Fetch content (filtered by chosen teacher for students)
+      let contentQuery = supabase
+        .from("content")
+        .select("id, title, type, file_url, description, created_at")
+        .eq("subject_id", subjectId)
+        .eq("is_active", true);
+
+      if (teacherId) {
+        contentQuery = contentQuery.eq("uploaded_by", teacherId);
+      }
+
+      const { data: contentData, error: contentError } = await contentQuery
+        .order("created_at", { ascending: false });
+
+      if (contentError) throw contentError;
       setContent((contentData as ContentRow[]) || []);
     } catch (e) {
       console.error(e);
@@ -637,6 +676,7 @@ const SubjectPage = () => {
           stage={subject.stage}
           section={subject.section}
           studentId={user.id}
+          teacherName={chosenTeacherName}
         />
       )}
     </div>

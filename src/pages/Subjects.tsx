@@ -64,7 +64,7 @@ function sectionLabel(section: string) {
 const Subjects = () => {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { signOut, role } = useAuth();
+  const { signOut, role, user } = useAuth();
 
   const stage = params.get("stage") || "";
   const grade = params.get("grade") || "";
@@ -122,6 +122,31 @@ const Subjects = () => {
 
     run();
   }, [stage, grade, section, category, navigate]);
+
+  // Check teacher choice for students - redirect if no teacher chosen
+  useEffect(() => {
+    if (!user || !stage || !grade || !category || role === "admin") return;
+
+    const checkTeacherChoice = async () => {
+      const { data } = await supabase
+        .from("student_teacher_choices")
+        .select("id")
+        .eq("student_id", user.id)
+        .eq("category", category)
+        .eq("stage", stage)
+        .eq("grade", grade)
+        .maybeSingle();
+
+      if (!data) {
+        navigate(
+          `/select-teacher?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${category}`,
+          { replace: true }
+        );
+      }
+    };
+
+    checkTeacherChoice();
+  }, [user, stage, grade, section, category, role, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
